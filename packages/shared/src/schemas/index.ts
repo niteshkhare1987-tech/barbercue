@@ -717,6 +717,45 @@ export type AdminCrmAnalyticsQuery = z.infer<
   typeof adminCrmAnalyticsQuerySchema
 >;
 
+// Admin "Shop activity" — an inclusive range of IST calendar dates, capped so one request can
+// never scan an unbounded history.
+export const ADMIN_SHOP_ACTIVITY_MAX_DAYS = 92;
+const adminCalendarDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return (
+      Number.isFinite(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    );
+  }, "date must be a valid YYYY-MM-DD calendar date");
+export const adminShopActivityQuerySchema = z
+  .object({ from: adminCalendarDate, to: adminCalendarDate })
+  .superRefine((query, ctx) => {
+    const days =
+      (Date.parse(`${query.to}T00:00:00.000Z`) -
+        Date.parse(`${query.from}T00:00:00.000Z`)) /
+        86_400_000 +
+      1;
+    if (days < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["to"],
+        message: "to must be on or after from",
+      });
+    } else if (days > ADMIN_SHOP_ACTIVITY_MAX_DAYS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["to"],
+        message: `the range cannot exceed ${ADMIN_SHOP_ACTIVITY_MAX_DAYS} days`,
+      });
+    }
+  });
+export type AdminShopActivityQuery = z.infer<
+  typeof adminShopActivityQuerySchema
+>;
+
 export const managedAdminRoleSchema = z.enum([
   Role.CO_FOUNDER,
   Role.HR_ADMIN,

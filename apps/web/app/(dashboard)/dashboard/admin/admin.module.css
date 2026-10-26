@@ -323,3 +323,20 @@
   .offerLetterGrid { grid-template-columns: 1fr; }
   .offerHeaderButton { width: 100%; }
 }
+
+/* Shop activity — date-filtered, shop-wise bookings and live queue */
+.activityFilters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.activityCustomRange { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 14px; }
+.activityCustomRange label { display: block; margin-bottom: 5px; font-size: var(--bc-text-xs); font-weight: 700; color: #e8e8ef; }
+.activityCustomRange input { min-height: 44px; padding: 10px 12px; border: 1px solid #3a3a48; border-radius: var(--bc-radius-sm); background: #0d0d12; color: #f7f7fb; font: 16px var(--font-body); color-scheme: dark; }
+.activityCustomRange input:focus-visible { outline: 2px solid #ff6f91; outline-offset: 2px; }
+.activityRangeError { flex-basis: 100%; margin: 0; color: #ffb7c9; font-size: var(--bc-text-sm); }
+.activityTotals { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.activityTotals article { padding: 12px; border: 1px solid #282832; border-radius: var(--bc-radius-sm); background: #0d0d12; }
+.activityTotals strong, .activityTotals span { display: block; }
+.activityTotals strong { font-family: var(--font-display); font-size: 1.4rem; font-weight: 600; }
+.activityTotals span { color: #a7a7b4; font-size: var(--bc-text-xs); }
+.tableWrap tbody th { padding: 11px 10px; text-align: left; border-bottom: 1px solid #282832; font-weight: 400; color: inherit; font-size: inherit; letter-spacing: normal; text-transform: none; }
+.tableWrap tbody th strong, .tableWrap tbody th small { display: block; }
+.tableWrap tbody th small { margin-top: 3px; color: #a7a7b4; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

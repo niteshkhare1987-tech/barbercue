@@ -5,6 +5,7 @@ import { ADMIN_PATHS, Role, SalonStatus, type PlatformAdminOverviewDto } from "@
 import { useAuth } from "../../../../lib/auth-context";
 import { apiFetch, ApiError } from "../../../../lib/api";
 import { Button, LinkButton } from "../../../../components/ui/Button";
+import { ShopActivityPanel } from "../../../../components/admin/ShopActivityPanel";
 import styles from "./admin.module.css";
 
 function contact(email: string | null, phone: string | null): string {
@@ -54,6 +55,7 @@ export default function AdminDashboardPage() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [statusSuccess, setStatusSuccess] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
 
   async function handleStatusChange(shopId: string, shopName: string, currentStatus: SalonStatus) {
     const transition = getNextShopStatus(currentStatus);
@@ -149,7 +151,7 @@ export default function AdminDashboardPage() {
           <p>Monitor FastQue and apply controlled shop support actions. Signed in as {user?.email ?? "platform admin"}.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button type="button" variant="outline" onClick={() => void loadOverview()} disabled={refreshing}>
+          <Button type="button" variant="outline" onClick={() => { setRefreshToken((n) => n + 1); void loadOverview(); }} disabled={refreshing}>
             {refreshing ? "Refreshing…" : "Refresh"}
           </Button>
           {superAdmin && <LinkButton href="/dashboard/admin/access" variant="outline">Access</LinkButton>}
@@ -231,6 +233,8 @@ export default function AdminDashboardPage() {
               </select>
             </div>
           </section>
+
+          <ShopActivityPanel search={query} refreshToken={refreshToken} />
 
           <section className={styles.section}>
             <div className={styles.sectionHeader}><h2>Shops</h2><span>{shops.length} shown · latest 100</span></div>

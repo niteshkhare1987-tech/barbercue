@@ -72,6 +72,9 @@ export const SITE_METRICS_PATHS = {
 export const ADMIN_PATHS = {
   admin: 'admin',
   overview: 'overview',
+  // admin/shop-activity?from=YYYY-MM-DD&to=YYYY-MM-DD — shop-wise bookings and live-queue counts
+  // for an IST date range.
+  shopActivity: 'shop-activity',
   // Phase 18 — admin/verification[/:id[/start-review|/decide]], the PLATFORM_ADMIN review queue.
   verification: 'verification',
   startReview: 'start-review',

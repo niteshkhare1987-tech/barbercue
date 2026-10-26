@@ -24,6 +24,7 @@ import {
   adminCrmFollowUpPageQuerySchema,
   adminCrmLeadPageQuerySchema,
   adminCrmVisitPageQuerySchema,
+  adminShopActivityQuerySchema,
   resetEmployeePasswordSchema,
   updateEmployeeSchema,
   type CreateEmployeeInput,
@@ -32,6 +33,7 @@ import {
   type AdminCrmFollowUpPageQuery,
   type AdminCrmLeadPageQuery,
   type AdminCrmVisitPageQuery,
+  type AdminShopActivityQuery,
   type DecideVerificationInput,
   type ResetEmployeePasswordInput,
   type UpdateEmployeeInput,
@@ -51,6 +53,7 @@ import { AdminEmployeeManagementService } from './admin-employee-management.serv
 import { AdminCrmService } from './admin-crm.service';
 import { AdminAccessManagementService } from './admin-access-management.service';
 import { SalonLocationService } from '../salon-setup/salon-location.service';
+import { AdminShopActivityService } from './admin-shop-activity.service';
 
 /** Authentication is global; authorization is admin-role only. Monitoring routes are read-only;
  * the verification routes (Phase 18) and shop deletion are this controller's mutating surfaces —
@@ -67,6 +70,7 @@ export class AdminController {
     private readonly crm: AdminCrmService,
     private readonly access: AdminAccessManagementService,
     private readonly location: SalonLocationService,
+    private readonly shopActivity: AdminShopActivityService,
   ) {}
 
   @Get(ADMIN_PATHS.overview)
@@ -82,6 +86,23 @@ export class AdminController {
       user.roles.includes(Role.PLATFORM_ADMIN) ||
       user.roles.includes(Role.CO_FOUNDER);
     return this.monitoring.getOverview({ maskPii: !canViewUnmaskedOverview });
+  }
+
+  // Counts only (no contact details), so it carries the same read audience as the overview.
+  @Get(ADMIN_PATHS.shopActivity)
+  @Roles(
+    Role.PLATFORM_ADMIN,
+    Role.CO_FOUNDER,
+    Role.HR_ADMIN,
+    Role.SALES_ADMIN,
+    Role.PLATFORM_VIEWER,
+  )
+  @Header('Cache-Control', 'private, no-store')
+  shopActivityReport(
+    @Query(new ZodValidationPipe(adminShopActivityQuerySchema))
+    query: AdminShopActivityQuery,
+  ) {
+    return this.shopActivity.getActivity(query);
   }
 
   @Get(ADMIN_PATHS.verification)

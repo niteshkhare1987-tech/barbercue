@@ -1859,6 +1859,42 @@ export interface SalonContactImportPreviewDto {
 
 // ---------- Platform admin monitoring ----------
 
+// GET admin/shop-activity. Bookings count by appointment date (slotStart) and queue entries by
+// joinedAt, both inside [from, to] as IST calendar days. liveNow is the current
+// WAITING + CALLED + IN_SERVICE count and ignores the date range.
+export interface AdminShopActivityCountsDto {
+  bookings: {
+    total: number;
+    confirmed: number;
+    completed: number;
+    cancelled: number;
+    noShow: number;
+  };
+  queue: {
+    joined: number;
+    served: number; // COMPLETED
+    dropped: number; // NO_SHOW + CANCELLED + EXPIRED
+    liveNow: number;
+  };
+}
+
+export interface AdminShopActivityDto extends AdminShopActivityCountsDto {
+  from: string;
+  to: string;
+  timeZone: string;
+  generatedAt: string;
+  // Only shops with a booking or queue entry in the range, or someone in the queue right now;
+  // busiest first. `bookings`/`queue` on the root are the totals across every shop.
+  shops: Array<
+    AdminShopActivityCountsDto & {
+      id: string;
+      publicId: string;
+      name: string;
+      status: SalonStatus;
+    }
+  >;
+}
+
 export interface PlatformAdminOverviewDto {
   generatedAt: string;
   // Null only before the first real browser/device has registered. We intentionally do not
