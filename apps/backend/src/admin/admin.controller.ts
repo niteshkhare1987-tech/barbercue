@@ -25,6 +25,7 @@ import {
   adminCrmLeadPageQuerySchema,
   adminCrmVisitPageQuerySchema,
   adminShopActivityQuerySchema,
+  adminAnalyticsRangeQuerySchema,
   resetEmployeePasswordSchema,
   updateEmployeeSchema,
   type CreateEmployeeInput,
@@ -34,6 +35,7 @@ import {
   type AdminCrmLeadPageQuery,
   type AdminCrmVisitPageQuery,
   type AdminShopActivityQuery,
+  type AdminAnalyticsRangeQuery,
   type DecideVerificationInput,
   type ResetEmployeePasswordInput,
   type UpdateEmployeeInput,
@@ -54,6 +56,7 @@ import { AdminCrmService } from './admin-crm.service';
 import { AdminAccessManagementService } from './admin-access-management.service';
 import { SalonLocationService } from '../salon-setup/salon-location.service';
 import { AdminShopActivityService } from './admin-shop-activity.service';
+import { AdminExecutiveOverviewService } from './analytics/admin-executive-overview.service';
 
 /** Authentication is global; authorization is admin-role only. Monitoring routes are read-only;
  * the verification routes (Phase 18) and shop deletion are this controller's mutating surfaces —
@@ -71,6 +74,7 @@ export class AdminController {
     private readonly access: AdminAccessManagementService,
     private readonly location: SalonLocationService,
     private readonly shopActivity: AdminShopActivityService,
+    private readonly executive: AdminExecutiveOverviewService,
   ) {}
 
   @Get(ADMIN_PATHS.overview)
@@ -103,6 +107,18 @@ export class AdminController {
     query: AdminShopActivityQuery,
   ) {
     return this.shopActivity.getActivity(query);
+  }
+
+  // Executive Command Center: company-wide business figures (service value included), so the
+  // audience is leadership plus the read-only viewer — not HR or Sales (docs/admin-dashboard-2.0).
+  @Get(`${ADMIN_PATHS.analytics}/${ADMIN_PATHS.overview}`)
+  @Roles(Role.PLATFORM_ADMIN, Role.CO_FOUNDER, Role.PLATFORM_VIEWER)
+  @Header('Cache-Control', 'private, no-store')
+  executiveOverview(
+    @Query(new ZodValidationPipe(adminAnalyticsRangeQuerySchema))
+    query: AdminAnalyticsRangeQuery,
+  ) {
+    return this.executive.getOverview(query);
   }
 
   @Get(ADMIN_PATHS.verification)

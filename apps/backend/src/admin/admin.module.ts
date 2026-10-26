@@ -9,6 +9,7 @@ import { AdminEmployeeManagementService } from './admin-employee-management.serv
 import { AdminCrmService } from './admin-crm.service';
 import { AdminAccessManagementService } from './admin-access-management.service';
 import { AdminShopActivityService } from './admin-shop-activity.service';
+import { AdminExecutiveOverviewService } from './analytics/admin-executive-overview.service';
 
 @Module({
   imports: [SalonSetupModule, AuthModule],
@@ -21,6 +22,7 @@ import { AdminShopActivityService } from './admin-shop-activity.service';
     AdminCrmService,
     AdminAccessManagementService,
     AdminShopActivityService,
+    AdminExecutiveOverviewService,
   ],
 })
 export class AdminModule {}

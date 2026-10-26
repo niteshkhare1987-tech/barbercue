@@ -10,15 +10,16 @@ describe("admin route boundary role matrix", () => {
     verification: "/dashboard/admin/verification",
     shops: "/dashboard/admin/shops",
     crmAnalytics: "/dashboard/admin/crm/analytics",
+    commandCenter: "/dashboard/admin/command-center",
   };
 
   test.each([
-    [Role.PLATFORM_ADMIN, [true, true, true, true, true, true, true]],
-    [Role.CO_FOUNDER, [true, false, true, true, true, true, false]],
-    [Role.HR_ADMIN, [true, false, true, true, false, false, false]],
-    [Role.SALES_ADMIN, [true, false, true, false, false, false, false]],
-    [Role.PLATFORM_VIEWER, [true, false, false, false, false, false, false]],
-    [Role.CUSTOMER, [false, false, false, false, false, false, false]],
+    [Role.PLATFORM_ADMIN, [true, true, true, true, true, true, true, true]],
+    [Role.CO_FOUNDER, [true, false, true, true, true, true, false, true]],
+    [Role.HR_ADMIN, [true, false, true, true, false, false, false, false]],
+    [Role.SALES_ADMIN, [true, false, true, false, false, false, false, false]],
+    [Role.PLATFORM_VIEWER, [true, false, false, false, false, false, false, true]],
+    [Role.CUSTOMER, [false, false, false, false, false, false, false, false]],
   ])("applies least-privilege web affordances for %s", (role, expected) => {
     const pathList = Object.values(paths);
     pathList.forEach((path, index) => {

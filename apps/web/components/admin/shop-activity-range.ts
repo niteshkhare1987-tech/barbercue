@@ -3,13 +3,27 @@ import { ADMIN_SHOP_ACTIVITY_MAX_DAYS } from "@barbercue/shared";
 // The admin date filter speaks India time, matching the backend's admin/shop-activity report.
 export const SHOP_ACTIVITY_TIME_ZONE = "Asia/Kolkata";
 
-export type ShopActivityPreset = "today" | "yesterday" | "last7" | "last30" | "custom";
+export type ShopActivityPreset =
+  | "today"
+  | "yesterday"
+  | "last7"
+  | "last30"
+  | "thisMonth"
+  | "lastMonth"
+  | "custom";
 
 export const SHOP_ACTIVITY_PRESETS: ReadonlyArray<{ id: Exclude<ShopActivityPreset, "custom">; label: string }> = [
   { id: "today", label: "Today" },
   { id: "yesterday", label: "Yesterday" },
   { id: "last7", label: "Last 7 days" },
   { id: "last30", label: "Last 30 days" },
+];
+
+// The Command Center adds calendar months (blueprint §3).
+export const COMMAND_CENTER_PRESETS: ReadonlyArray<{ id: Exclude<ShopActivityPreset, "custom">; label: string }> = [
+  ...SHOP_ACTIVITY_PRESETS,
+  { id: "thisMonth", label: "This month" },
+  { id: "lastMonth", label: "Last month" },
 ];
 
 /** Today's IST calendar date as YYYY-MM-DD. */
@@ -44,6 +58,12 @@ export function presetRange(
       return { from: addDays(today, -6), to: today };
     case "last30":
       return { from: addDays(today, -29), to: today };
+    case "thisMonth":
+      return { from: `${today.slice(0, 7)}-01`, to: today };
+    case "lastMonth": {
+      const lastDayOfPrevious = addDays(`${today.slice(0, 7)}-01`, -1);
+      return { from: `${lastDayOfPrevious.slice(0, 7)}-01`, to: lastDayOfPrevious };
+    }
   }
 }
 

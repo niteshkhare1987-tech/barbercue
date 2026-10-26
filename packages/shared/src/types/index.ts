@@ -1895,6 +1895,80 @@ export interface AdminShopActivityDto extends AdminShopActivityCountsDto {
   >;
 }
 
+// GET admin/analytics/overview — Executive Command Center. Definitions: docs/admin-dashboard-2.0/PLAN.md §4.
+// `null` always means "not measurable / not tracked", never zero. Money is integer paise (INR).
+export interface AdminKpiValue {
+  current: number | null;
+  previous: number | null;
+}
+
+export type AdminAdoptionCategory =
+  | "RECENTLY_ONBOARDED"
+  | "NEVER_ACTIVATED"
+  | "AT_RISK"
+  | "HIGHLY_ACTIVE"
+  | "MODERATELY_ACTIVE"
+  | "LOW_USAGE"
+  | "DORMANT";
+
+export interface AdminExecutiveOverviewDto {
+  from: string;
+  to: string;
+  previousFrom: string;
+  previousTo: string;
+  timeZone: string;
+  generatedAt: string;
+  kpis: {
+    registeredSalons: AdminKpiValue;
+    newSalons: AdminKpiValue;
+    servingSalons: AdminKpiValue;
+    appointmentsBooked: AdminKpiValue;
+    appointmentsCompleted: AdminKpiValue;
+    walkInsServed: AdminKpiValue;
+    completedVisits: AdminKpiValue;
+    cancelled: AdminKpiValue;
+    noShow: AdminKpiValue;
+    cancellationRatePercent: AdminKpiValue;
+    noShowRatePercent: AdminKpiValue;
+    completedServiceValuePaise: AdminKpiValue;
+    walkInValueEstimatePaise: AdminKpiValue; // included in completedServiceValuePaise
+    averageVisitValuePaise: AdminKpiValue;
+    completedServiceMinutes: AdminKpiValue;
+    openSalonsNow: number; // current state, no comparison
+    platformRevenuePaise: null; // not tracked yet
+  };
+  trend: Array<{
+    date: string;
+    appointmentsCompleted: number;
+    walkInsServed: number;
+    serviceValuePaise: number;
+  }>;
+  adoption: {
+    asOf: string; // IST date the 30-day window ends on (inclusive)
+    windowDays: number;
+    totalSalons: number;
+    counts: Record<AdminAdoptionCategory, number>;
+  };
+  // Salons with any appointment or walk-in activity in the period, most completed visits first.
+  shops: Array<{
+    id: string;
+    publicId: string;
+    name: string;
+    city: string;
+    status: SalonStatus;
+    registeredAt: string;
+    adoption: AdminAdoptionCategory;
+    completedVisits: number;
+    appointmentsCompleted: number;
+    walkInsServed: number;
+    cancelled: number;
+    noShow: number;
+    serviceValuePaise: number;
+  }>;
+  shopsTotal: number; // before the row limit
+  shopsLimit: number;
+}
+
 export interface PlatformAdminOverviewDto {
   generatedAt: string;
   // Null only before the first real browser/device has registered. We intentionally do not

@@ -75,6 +75,8 @@ export const ADMIN_PATHS = {
   // admin/shop-activity?from=YYYY-MM-DD&to=YYYY-MM-DD — shop-wise bookings and live-queue counts
   // for an IST date range.
   shopActivity: 'shop-activity',
+  // admin/analytics/overview?from&to — Executive Command Center (docs/admin-dashboard-2.0).
+  analytics: 'analytics',
   // Phase 18 — admin/verification[/:id[/start-review|/decide]], the PLATFORM_ADMIN review queue.
   verification: 'verification',
   startReview: 'start-review',
@@ -97,6 +99,17 @@ export const ADMIN_PATHS = {
   leads: 'leads',
   visits: 'visits',
   followUps: 'follow-ups',
+} as const;
+
+// Proposed shop adoption thresholds (docs/admin-dashboard-2.0/PLAN.md §4) — business proposals, not
+// industry standards. "Completed visits" = completed appointments + served walk-ins.
+export const ADMIN_ADOPTION_THRESHOLDS = {
+  windowDays: 30,
+  recentlyOnboardedDays: 7,
+  highlyActiveMinVisits: 20,
+  moderatelyActiveMinVisits: 5,
+  atRiskMinBaselineVisits: 10,
+  atRiskDropPercent: 50,
 } as const;
 
 // The ONLY place this wording is allowed to live — every surface that shows a Verified badge

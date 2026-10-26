@@ -755,6 +755,9 @@ export const adminShopActivityQuerySchema = z
 export type AdminShopActivityQuery = z.infer<
   typeof adminShopActivityQuerySchema
 >;
+// Every admin analytics report takes the same inclusive IST date range.
+export const adminAnalyticsRangeQuerySchema = adminShopActivityQuerySchema;
+export type AdminAnalyticsRangeQuery = AdminShopActivityQuery;
 
 export const managedAdminRoleSchema = z.enum([
   Role.CO_FOUNDER,
