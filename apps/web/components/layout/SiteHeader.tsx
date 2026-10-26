@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { DISCOVERY_PATHS } from "@barbercue/shared";
@@ -38,6 +39,8 @@ export function SiteHeader() {
   const router = useRouter();
   const { user, status } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileNavId = useId();
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
   const [workplaces, setWorkplaces] = useState<SalonWorkplaceDto[] | null>(null);
 
   const authenticatedUser = status === "authenticated" ? user : null;
@@ -86,6 +89,17 @@ export function SiteHeader() {
 
   // Inside the owner/staff dashboard the shell renders its own header (after all hooks above ran).
   if (OWNER_SHELL_PATH.test(pathname)) return null;
+
+  const closeMobileMenu = () => setMobileOpen(false);
+
+  // Disclosure pattern: Escape from the toggle or any menu item closes the menu and puts focus back
+  // on the toggle, so keyboard users are not left inside a menu that has disappeared.
+  function handleMobileNavKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Escape" || !mobileOpen) return;
+    event.preventDefault();
+    setMobileOpen(false);
+    menuToggleRef.current?.focus();
+  }
 
   function ShopSwitcher({ mobile = false }: { mobile?: boolean }) {
     if (!showShopSwitcher) return null;
@@ -201,36 +215,38 @@ export function SiteHeader() {
               </div>
             )}
 
-            <div className={styles.mobileNavHost}>
+            <div className={styles.mobileNavHost} onKeyDown={handleMobileNavKeyDown}>
               <button
+                ref={menuToggleRef}
                 type="button"
                 className={styles.menuToggle}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
                 aria-expanded={mobileOpen}
+                aria-controls={mobileNavId}
                 onClick={() => setMobileOpen((open) => !open)}
               >
                 {mobileOpen ? <CloseIcon /> : <MenuIcon />}
               </button>
 
               {mobileOpen && (
-                <nav className={styles.mobileNav} aria-label="Mobile">
+                <nav id={mobileNavId} className={styles.mobileNav} aria-label="Mobile">
                   {PRIMARY_LINKS.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}
                       className={styles.mobileNavLink}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={closeMobileMenu}
                     >
                       {link.label}
                     </Link>
                   ))}
-                  <Link href="/employee/login" className={styles.mobileNavLink}>
+                  <Link href="/employee/login" className={styles.mobileNavLink} onClick={closeMobileMenu}>
                     Employee Login
                   </Link>
-                  <Link href="/contact-us" className={styles.mobileNavLink}>
+                  <Link href="/contact-us" className={styles.mobileNavLink} onClick={closeMobileMenu}>
                     Contact Us
                   </Link>
-                  <Link href="/careers" className={styles.mobileNavLink}>
+                  <Link href="/careers" className={styles.mobileNavLink} onClick={closeMobileMenu}>
                     We&apos;re Hiring
                   </Link>
                   <ShopSwitcher mobile />
@@ -238,7 +254,7 @@ export function SiteHeader() {
                   <Link
                     href={workspaceHref}
                     className={styles.mobileNavLink}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={closeMobileMenu}
                   >
                     {workspaceLabel}
                   </Link>
@@ -246,7 +262,7 @@ export function SiteHeader() {
                     <Link
                       href="/dashboard/register-shop"
                       className={styles.mobileNavCta}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={closeMobileMenu}
                     >
                       List your shop
                     </Link>
