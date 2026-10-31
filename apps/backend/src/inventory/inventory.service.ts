@@ -1,8 +1,10 @@
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
+  INVENTORY_LOSS_KINDS,
   InventoryMovementKind as MovementKind,
   InventoryErrorCode,
+  normalizeBarcode,
 } from '@barbercue/shared';
 import { Prisma, type InventoryMovementKind } from '@prisma/client';
 import {
@@ -28,6 +30,22 @@ import { PrismaService } from '../prisma/prisma.service';
 const productRelations = {
   category: { select: { id: true, name: true } },
   supplier: { select: { id: true, name: true } },
+  // Inventory Phase 1: the linked Global Product Master entry's barcode, first photo and brand.
+  globalProduct: {
+    select: {
+      brand: true,
+      barcodes: {
+        select: { display: true },
+        orderBy: { createdAt: 'asc' as const },
+        take: 1,
+      },
+      images: {
+        select: { url: true },
+        orderBy: { sortOrder: 'asc' as const },
+        take: 1,
+      },
+    },
+  },
 } satisfies Prisma.InventoryProductInclude;
 type ProductRecord = Prisma.InventoryProductGetPayload<{
   include: typeof productRelations;
@@ -227,6 +245,18 @@ export class InventoryService {
             OR: [
               { name: { contains: query.q, mode: 'insensitive' } },
               { sku: { contains: query.q, mode: 'insensitive' } },
+              ...(() => {
+                const barcode = normalizeBarcode(query.q);
+                return barcode.ok
+                  ? [
+                      {
+                        globalProduct: {
+                          barcodes: { some: { code: barcode.code } },
+                        },
+                      },
+                    ]
+                  : [];
+              })(),
             ],
           }
         : {}),
@@ -302,6 +332,10 @@ export class InventoryService {
             supplierId: input.supplierId ?? null,
             isActive: input.isActive ?? true,
             reorderThreshold: input.reorderThreshold.toFixed(3),
+            sellingPrice: input.sellingPrice?.toFixed(2) ?? null,
+            storageLocation: this.nullableTrim(input.storageLocation),
+            minimumOrderQuantity:
+              input.minimumOrderQuantity?.toFixed(3) ?? null,
           },
           include: productRelations,
         });
@@ -373,6 +407,18 @@ export class InventoryService {
       ...(input.reorderThreshold !== undefined
         ? { reorderThreshold: input.reorderThreshold.toFixed(3) }
         : {}),
+      ...(input.sellingPrice !== undefined
+        ? { sellingPrice: input.sellingPrice?.toFixed(2) ?? null }
+        : {}),
+      ...(input.storageLocation !== undefined
+        ? { storageLocation: this.nullableTrim(input.storageLocation) }
+        : {}),
+      ...(input.minimumOrderQuantity !== undefined
+        ? {
+            minimumOrderQuantity:
+              input.minimumOrderQuantity?.toFixed(3) ?? null,
+          }
+        : {}),
     };
     if (input.categoryId !== undefined && input.categoryId === null)
       data.category = { disconnect: true };
@@ -421,7 +467,8 @@ export class InventoryService {
       await this.assertReferences(salonId, undefined, input.supplierId);
 
     const quantityDelta =
-      input.kind === MovementKind.CONSUMPTION
+      input.kind === MovementKind.CONSUMPTION ||
+      (INVENTORY_LOSS_KINDS as readonly string[]).includes(input.kind)
         ? -input.quantity
         : input.kind === MovementKind.ADJUSTMENT &&
             input.adjustmentDirection === 'DECREASE'
@@ -439,6 +486,8 @@ export class InventoryService {
           supplierId: input.supplierId ?? null,
           reason: input.reason?.trim() ?? null,
           reference: input.reference?.trim() ?? null,
+          batchNumber: input.batchNumber?.trim() || null,
+          expiryDate: input.expiryDate ?? null,
         }),
       )
       .digest('hex');
@@ -499,7 +548,8 @@ export class InventoryService {
               salonId,
               productId,
               supplierId:
-                input.kind === MovementKind.PURCHASE
+                input.kind === MovementKind.PURCHASE ||
+                input.kind === MovementKind.RETURN
                   ? (input.supplierId ?? null)
                   : null,
               actorUserId: userId,
@@ -511,6 +561,10 @@ export class InventoryService {
                   : new Prisma.Decimal(input.unitCost.toFixed(2)),
               reason: input.reason?.trim() || null,
               reference: input.reference?.trim() || null,
+              batchNumber: input.batchNumber?.trim() || null,
+              expiryDate: input.expiryDate
+                ? new Date(`${input.expiryDate}T00:00:00.000Z`)
+                : null,
               idempotencyKey: key,
               requestHash,
             },
@@ -561,6 +615,23 @@ export class InventoryService {
       }
       throw error;
     }
+  }
+
+  /** One product as a DTO, for callers that already checked access (e.g. ProductCatalogService). */
+  async getProduct(
+    salonId: string,
+    productId: string,
+  ): Promise<InventoryProductDto> {
+    const row = await this.prisma.inventoryProduct.findFirst({
+      where: { id: productId, salonId },
+      include: productRelations,
+    });
+    if (!row)
+      throw this.notFound(
+        InventoryErrorCode.PRODUCT_NOT_FOUND,
+        'Inventory product not found.',
+      );
+    return this.toProductDto(row);
   }
 
   async listMovements(
@@ -666,6 +737,12 @@ export class InventoryService {
       PURCHASE: 0,
       CONSUMPTION: 0,
       ADJUSTMENT: 0,
+      RETURN: 0,
+      DAMAGE: 0,
+      EXPIRY: 0,
+      WASTAGE: 0,
+      TRANSFER_OUT: 0,
+      TRANSFER_IN: 0,
     };
     for (const group of movementGroups)
       movementCounts[group.kind] = group._count._all;
@@ -857,6 +934,14 @@ export class InventoryService {
         ? { id: row.supplier.id, name: row.supplier.name }
         : null,
       updatedAt: row.updatedAt.toISOString(),
+      globalProductId: row.globalProductId,
+      usage: row.usage,
+      barcode: row.globalProduct?.barcodes[0]?.display ?? null,
+      imageUrl: row.globalProduct?.images[0]?.url ?? null,
+      brand: row.globalProduct?.brand ?? null,
+      sellingPrice: row.sellingPrice?.toFixed(2) ?? null,
+      storageLocation: row.storageLocation,
+      minimumOrderQuantity: row.minimumOrderQuantity?.toFixed(3) ?? null,
     };
   }
 
@@ -879,6 +964,8 @@ export class InventoryService {
       reason: row.reason,
       reference: row.reference,
       recordedAt: row.recordedAt.toISOString(),
+      batchNumber: row.batchNumber,
+      expiryDate: row.expiryDate?.toISOString().slice(0, 10) ?? null,
     };
   }
 

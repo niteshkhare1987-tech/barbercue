@@ -19,6 +19,7 @@ export * from './demo-workspace';
 export * from './queue-phase';
 export * from './shop-home';
 export * from './inventory';
+export * from './product-catalog';
 export * from './inventory';
 export * from './offers';
 export * from './employee-voice';

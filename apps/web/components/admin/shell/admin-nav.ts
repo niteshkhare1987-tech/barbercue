@@ -17,6 +17,7 @@ export type AdminNavGroupId =
   | "CUSTOMERS"
   | "SALES"
   | "OPERATIONS"
+  | "INVENTORY"
   | "ANALYTICS"
   | "ALERTS"
   | "REPORTS"
@@ -44,6 +45,7 @@ export const ADMIN_NAV_GROUPS: ReadonlyArray<{ id: AdminNavGroupId; label: strin
   { id: "CUSTOMERS", label: "Customers", icon: "users" },
   { id: "SALES", label: "Regional Sales", icon: "trend" },
   { id: "OPERATIONS", label: "Operations", icon: "queue" },
+  { id: "INVENTORY", label: "Inventory", icon: "tag" },
   { id: "ANALYTICS", label: "Analytics", icon: "chart" },
   { id: "ALERTS", label: "Alerts", icon: "alert" },
   { id: "REPORTS", label: "Reports", icon: "receipt" },
@@ -98,6 +100,10 @@ export const ADMIN_NAV_ITEMS: ReadonlyArray<AdminNavItem> = [
 
   { id: "chart-builder", label: "Chart Builder", group: "ANALYTICS", href: CHARTS, status: "live" },
   planned("ANALYTICS", "saved-reports", "Saved Reports", "Server-side saved chart preferences (stored per browser today)."),
+
+  { id: "inventory-overview", label: "Inventory Overview", group: "INVENTORY", href: "/dashboard/admin/inventory", status: "live" },
+  { id: "product-catalog", label: "Product Catalog", group: "INVENTORY", href: "/dashboard/admin/inventory/catalog", status: "live" },
+  { id: "catalog-import", label: "Catalog Import", group: "INVENTORY", href: "/dashboard/admin/inventory/catalog", query: "view=import", status: "live" },
 
   { id: "quiet-shops", label: "Open, No Bookings", group: "ALERTS", href: STATUS, query: "filter=quiet", status: "live" },
   planned("ALERTS", "inactive-alerts", "Inactive Shop Alerts", "Alert rules, alert records and assignable follow-ups."),

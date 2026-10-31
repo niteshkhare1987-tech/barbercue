@@ -168,11 +168,14 @@ describe("list queries", () => {
 });
 
 describe("labels", () => {
-  it("names the four movement types and shows an unknown one as sent", () => {
+  it("names every movement type and shows an unknown one as sent", () => {
     expect(I.kindLabel("CONSUMPTION")).toBe("Used");
     expect(I.kindLabel("OPENING")).toBe("Opening stock");
+    expect(I.kindLabel("DAMAGE")).toBe("Damaged");
+    expect(I.kindLabel("TRANSFER_IN")).toBe("Moved from other shelf");
     expect(I.kindLabel("NEW")).toBe("NEW");
-    expect(I.MOVEMENT_KINDS).toHaveLength(4);
+    expect(I.MOVEMENT_KINDS).toHaveLength(10);
+    expect(I.MOVEMENT_KINDS.every((k) => I.KIND_LABEL[k])).toBe(true);
   });
   it("offers the eight units the server accepts", () => {
     expect(I.UNIT_OPTIONS.map((u) => u.value).sort()).toEqual(["BOX", "EACH", "GRAM", "KILOGRAM", "LITER", "MILLILITER", "OTHER", "PACK"]);

@@ -1,0 +1,70 @@
+/* Inventory Phase 1: Scan / Add stock. */
+.scanner { display: grid; gap: 4px; }
+.viewport {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  background: #101014;
+}
+.viewportLive { outline: 2px solid var(--bc-brand-pink, #f2295c); }
+.video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.guide {
+  position: absolute;
+  inset: 30% 12%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35);
+}
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: #f7f5f4;
+  text-align: center;
+}
+.placeholder span { font-size: 2.6rem; opacity: 0.7; }
+.placeholder p { margin: 0; }
+.photoButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px dashed currentColor;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.photoButton input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photoButton:focus-within { outline: 2px solid var(--bc-brand-orange, #ff7a3d); outline-offset: 2px; }
+.manual { display: grid; gap: 4px; flex: 1 1 220px; }
+.product { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start; }
+.productImage {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(127, 127, 127, 0.12);
+  font-size: 2rem;
+}
+.productImage img { width: 100%; height: 100%; object-fit: cover; }
+.productName { font-size: 1.1rem; }
+.shelves { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 4px 0 12px; padding: 4px; border-radius: 12px; background: rgba(127, 127, 127, 0.12); }
+.shelf { min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 700; cursor: pointer; color: inherit; }
+.shelfOn { background: var(--bc-brand-gradient, #f2295c); color: #fff; }
+.shelf:focus-visible { outline: 2px solid var(--bc-brand-orange, #ff7a3d); outline-offset: 2px; }
+.thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
+.summary { cursor: pointer; font-weight: 700; margin-bottom: 8px; }
+@media (max-width: 600px) {
+  .product { grid-template-columns: 72px minmax(0, 1fr); }
+  .productImage { width: 72px; height: 72px; }
+  .shelves { display: grid; }
+}

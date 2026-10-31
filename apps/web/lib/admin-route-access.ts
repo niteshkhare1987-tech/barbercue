@@ -32,6 +32,11 @@ export function canOpenAdminPath(roles: Role[], pathname: string): boolean {
   if (pathname.startsWith("/dashboard/admin/command-center")) {
     return superAdmin || coFounder || roles.includes(Role.PLATFORM_VIEWER);
   }
+  // Inventory overview and catalog: same audience as GET admin/inventory-overview and inventory-catalog.
+  // (Catalog review and import are further limited to PLATFORM_ADMIN / CO_FOUNDER on the server.)
+  if (pathname.startsWith("/dashboard/admin/inventory")) {
+    return superAdmin || coFounder || roles.includes(Role.PLATFORM_VIEWER);
+  }
   if (pathname.startsWith("/dashboard/admin/access")) return superAdmin;
   // The platform CRM analytics and its cursor-paged rows are PLATFORM_ADMIN only on the server (ADMIN_CRM_ANALYTICS_V1).
   if (pathname.startsWith("/dashboard/admin/crm/analytics")) return superAdmin;

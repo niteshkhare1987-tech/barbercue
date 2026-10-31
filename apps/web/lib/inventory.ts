@@ -44,13 +44,21 @@ export const KIND_LABEL: Record<string, string> = {
   PURCHASE: "Purchase",
   CONSUMPTION: "Used",
   ADJUSTMENT: "Adjustment",
+  RETURN: "Returned to supplier",
+  DAMAGE: "Damaged",
+  EXPIRY: "Expired",
+  WASTAGE: "Wasted",
+  TRANSFER_OUT: "Moved to other shelf",
+  TRANSFER_IN: "Moved from other shelf",
 };
 
 export function kindLabel(kind: string): string {
   return KIND_LABEL[kind] ?? kind;
 }
 
-export const MOVEMENT_KINDS: ReadonlyArray<MovementKind> = ["OPENING", "PURCHASE", "CONSUMPTION", "ADJUSTMENT"];
+export const MOVEMENT_KINDS: ReadonlyArray<MovementKind> = [
+  "OPENING", "PURCHASE", "CONSUMPTION", "ADJUSTMENT", "RETURN", "DAMAGE", "EXPIRY", "WASTAGE", "TRANSFER_OUT", "TRANSFER_IN",
+];
 
 // ---------- showing server numbers ----------
 
@@ -203,6 +211,9 @@ export function movementSummary(kind: MovementKind, product: Pick<InventoryProdu
       return `Take ${qty} of ${product.name} out of stock as used.`;
     case "ADJUSTMENT":
       return `${body.adjustmentDirection === "DECREASE" ? "Reduce" : "Increase"} ${product.name} by ${qty}. Reason: ${body.reason}.`;
+    default:
+      // Write-offs (returned, damaged, expired, wasted) and shelf moves.
+      return `Record ${qty} of ${product.name} as ${(KIND_LABEL[kind] ?? kind).toLowerCase()}.`;
   }
 }
 

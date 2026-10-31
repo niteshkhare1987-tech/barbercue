@@ -185,6 +185,41 @@ enum InventoryMovementKind {
   PURCHASE
   CONSUMPTION
   ADJUSTMENT
+  RETURN
+  DAMAGE
+  EXPIRY
+  WASTAGE
+  TRANSFER_OUT
+  TRANSFER_IN
+}
+
+enum StockUsage {
+  PROFESSIONAL
+  RETAIL
+}
+
+enum ProductType {
+  PROFESSIONAL
+  RETAIL
+  BOTH
+}
+
+enum ProductDataSource {
+  ADMIN
+  CSV_IMPORT
+  OPEN_BEAUTY_FACTS
+  SALON_SUBMITTED
+}
+
+enum ProductVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum BarcodeFormat {
+  GTIN
+  OTHER
 }
 
 enum PhotoType {
@@ -427,6 +462,8 @@ model User {
   auditLogs                     AuditLog[]
   favoriteSalons                CustomerFavorite[]
   inventoryMovements            InventoryMovement[]
+  globalProductsCreated  GlobalProduct[] @relation("GlobalProductCreator")
+  globalProductsReviewed GlobalProduct[] @relation("GlobalProductReviewer")
   otpRequests                   OtpRequest[]             @relation("OtpRequestSubject")
   premiumSubscriptions          CustomerSubscription[]
   // Phase 18 (Shop / Barber Verification Foundation) — an owner submitting evidence, and a
@@ -981,6 +1018,7 @@ model Salon {
   inventorySuppliers          InventorySupplier[]
   inventoryProducts           InventoryProduct[]
   inventoryMovements          InventoryMovement[]
+  globalProductSubmissions GlobalProduct[] @relation("GlobalProductSubmissions")
   demoWorkspace               OwnerDemoWorkspace?
 
   @@unique([cityId, slug])
@@ -2038,11 +2076,21 @@ model InventoryProduct {
   isActive         Boolean            @default(true)
   createdAt        DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+  // Inventory Phase 1: optional link to the Global Product Master (the salon keeps its own stock,
+  // costs and prices), which shelf the stock is on, and per-salon commercial details.
+  globalProductId      String?
+  globalProduct        GlobalProduct? @relation(fields: [globalProductId], references: [id], onDelete: Restrict)
+  usage                StockUsage     @default(PROFESSIONAL)
+  sellingPrice         Decimal?       @db.Decimal(12, 2)
+  storageLocation      String?        @db.VarChar(80)
+  minimumOrderQuantity Decimal?       @db.Decimal(12, 3)
 
   movements InventoryMovement[]
 
   @@unique([id, salonId])
   @@unique([salonId, sku])
+  @@unique([salonId, globalProductId, usage])
+  @@index([globalProductId])
   @@index([salonId, isActive, normalizedName])
   @@index([salonId, categoryId])
   @@index([salonId, stockOnHand])
@@ -2069,12 +2117,89 @@ model InventoryMovement {
   idempotencyKey       String                @db.VarChar(128)
   requestHash          String                @db.VarChar(64)
   recordedAt           DateTime              @default(now()) @db.Timestamptz(6)
+  // Inventory Phase 1: batch/lot and expiry recorded on incoming stock; a shelf transfer's two
+  // entries share one transferGroupId.
+  batchNumber          String?               @db.VarChar(60)
+  expiryDate           DateTime?             @db.Date
+  transferGroupId      String?               @db.Uuid
 
   @@unique([salonId, idempotencyKey])
   @@index([salonId, recordedAt, id])
   @@index([productId, recordedAt, id])
   @@index([salonId, kind, recordedAt])
   @@map("inventory_movements")
+}
+
+// ---------- Global Product Master (Inventory Phase 1) ----------
+// One shared catalog of products identified by barcode. Salons keep their own stock, costs and
+// prices on InventoryProduct. A salon's submission stays PENDING (usable by that salon only) until
+// a FastQue admin verifies it; nothing is published to other salons unverified.
+model GlobalProduct {
+  id                 String                    @id @default(uuid())
+  name               String                    @db.VarChar(160)
+  normalizedName     String                    @db.VarChar(160)
+  brand              String?                   @db.VarChar(120)
+  manufacturer       String?                   @db.VarChar(160)
+  category           String?                   @db.VarChar(80)
+  subcategory        String?                   @db.VarChar(80)
+  description        String?                   @db.VarChar(1000)
+  packSize           Decimal?                  @db.Decimal(12, 3)
+  packUnit           InventoryUnit?
+  mrp                Decimal?                  @db.Decimal(12, 2)
+  currency           String?                   @db.VarChar(3)
+  hsnCode            String?                   @db.VarChar(8)
+  gstRatePercent     Decimal?                  @db.Decimal(5, 2)
+  productType        ProductType               @default(BOTH)
+  dataSource         ProductDataSource
+  sourceReference    String?                   @db.VarChar(300)
+  sourceLicense      String?                   @db.VarChar(80)
+  verificationStatus ProductVerificationStatus @default(PENDING)
+  submittedBySalonId String?
+  submittedBySalon   Salon?                    @relation("GlobalProductSubmissions", fields: [submittedBySalonId], references: [id], onDelete: SetNull)
+  createdByUserId    String
+  createdBy          User                      @relation("GlobalProductCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  reviewedByUserId   String?
+  reviewedBy         User?                     @relation("GlobalProductReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt         DateTime?                 @db.Timestamptz(6)
+  reviewNote         String?                   @db.VarChar(300)
+  createdAt          DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime                  @updatedAt @db.Timestamptz(6)
+
+  barcodes          GlobalProductBarcode[]
+  images            GlobalProductImage[]
+  inventoryProducts InventoryProduct[]
+
+  @@index([verificationStatus, createdAt])
+  @@index([normalizedName])
+  @@index([submittedBySalonId])
+  @@map("global_products")
+}
+
+// Barcodes are text, never numbers (leading zeros matter). `code` is the canonical form from
+// normalizeBarcode (retail barcodes as 14-digit GTINs), unique across the catalog.
+model GlobalProductBarcode {
+  id        String        @id @default(uuid())
+  productId String
+  product   GlobalProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  code      String        @unique @db.VarChar(64)
+  display   String        @db.VarChar(64)
+  format    BarcodeFormat
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
+
+  @@index([productId])
+  @@map("global_product_barcodes")
+}
+
+model GlobalProductImage {
+  id        String        @id @default(uuid())
+  productId String
+  product   GlobalProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String        @db.VarChar(500)
+  sortOrder Int           @default(0)
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
+
+  @@index([productId, sortOrder])
+  @@map("global_product_images")
 }
 
 // ---------- Subscription (inactive in V1 — see ARCHITECTURE.md §16) ----------

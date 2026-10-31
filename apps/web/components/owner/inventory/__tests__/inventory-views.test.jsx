@@ -81,12 +81,12 @@ beforeEach(() => {
 });
 
 describe("InventoryTabs", () => {
-  it("links all ten sections and marks the current one", async () => {
+  it("links every section (incl. Scan / Add stock) and marks the current one", async () => {
     mockPath = "/dashboard/salons/s1/inventory/low-stock";
     const r = await mount(<InventoryTabs salonId="s1" />);
     const links = r.root.findAll((n) => n.type === "a");
-    expect(links).toHaveLength(10);
-    expect(INVENTORY_SECTIONS).toHaveLength(10);
+    expect(links).toHaveLength(11);
+    expect(INVENTORY_SECTIONS).toHaveLength(11);
     expect(links.find((l) => l.props["aria-current"] === "page").props.href).toBe("/dashboard/salons/s1/inventory/low-stock");
     expect(links.filter((l) => l.props["aria-current"]).length).toBe(1);
   });
