@@ -16,6 +16,8 @@ export const INVENTORY_SECTIONS: ReadonlyArray<{ path: string; label: string }> 
   { path: "", label: "Overview" },
   { path: "scan", label: "Scan / Add stock" },
   { path: "products", label: "Products" },
+  { path: "recipes", label: "Service recipes" },
+  { path: "usage", label: "Product usage" },
   { path: "categories", label: "Categories" },
   { path: "suppliers", label: "Suppliers" },
   { path: "purchases", label: "Purchases" },

@@ -13,6 +13,7 @@ import { Banner, Btn, BtnLink, Card, EmptyState, Field, Skeleton } from "../part
 import { MovementForm } from "./MovementForm";
 import { MovementsTable } from "./MovementsTable";
 import { ListFooter, ListSkeleton, ProductPicker, StockCell } from "./shared";
+import { InventoryDashboard } from "./ServiceUsageViews";
 import ui from "../owner.module.css";
 
 const WORKSPACES: Record<"PURCHASE" | "CONSUMPTION" | "ADJUSTMENT", { title: string; sub: string; historyTitle: string }> = {
@@ -192,6 +193,9 @@ export function OverviewView({ salonId }: { salonId: string }) {
           {report && report.lowStockCount > 0 && <BtnLink variant="primary" href={`${base}/low-stock`}>See {report.lowStockCount} low on stock</BtnLink>}
         </div>
       </Card>
+      <div className={ui.mt16}>
+        <InventoryDashboard salonId={salonId} />
+      </div>
       <div className={ui.mt16}>
         <Card title="Latest stock changes" action={<BtnLink small variant="quiet" href={`${base}/history`}>All history</BtnLink>}>
           {recent.loading ? <ListSkeleton /> : <MovementsTable items={recent.items.slice(0, 5)} currency={report?.currency ?? null} emptyTitle="No stock movements yet" />}

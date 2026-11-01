@@ -21,6 +21,7 @@ import {
   type InventoryProductDto,
   type InventoryReportDto,
   type InventorySupplierDto,
+  type InventoryUnit,
   type UpdateInventoryProductInput,
 } from '@barbercue/shared';
 import { AppException } from '../common/exceptions/app.exception';
@@ -336,6 +337,7 @@ export class InventoryService {
             storageLocation: this.nullableTrim(input.storageLocation),
             minimumOrderQuantity:
               input.minimumOrderQuantity?.toFixed(3) ?? null,
+            ...this.contentFields(input),
           },
           include: productRelations,
         });
@@ -419,6 +421,7 @@ export class InventoryService {
               input.minimumOrderQuantity?.toFixed(3) ?? null,
           }
         : {}),
+      ...this.contentFields(input),
     };
     if (input.categoryId !== undefined && input.categoryId === null)
       data.category = { disconnect: true };
@@ -942,7 +945,41 @@ export class InventoryService {
       sellingPrice: row.sellingPrice?.toFixed(2) ?? null,
       storageLocation: row.storageLocation,
       minimumOrderQuantity: row.minimumOrderQuantity?.toFixed(3) ?? null,
+      contentSize: row.contentSize?.toFixed(3) ?? null,
+      contentUnit: row.contentUnit,
     };
+  }
+
+  /**
+   * "One piece contains 195 ml": size and unit are set or cleared together, and only make sense
+   * for stock counted in pieces, packs or boxes.
+   */
+  private contentFields(input: {
+    unit?: InventoryUnit;
+    contentSize?: number | null;
+    contentUnit?: InventoryUnit | null;
+  }): { contentSize?: string | null; contentUnit?: InventoryUnit | null } {
+    if (input.contentSize === undefined && input.contentUnit === undefined)
+      return {};
+    const size = input.contentSize ?? null;
+    const unit = input.contentUnit ?? null;
+    if ((size === null) !== (unit === null))
+      throw new AppException(
+        InventoryErrorCode.INVALID_MOVEMENT,
+        'Give both how much one piece contains and its unit, or neither.',
+        HttpStatus.BAD_REQUEST,
+      );
+    if (
+      size !== null &&
+      input.unit !== undefined &&
+      !['EACH', 'PACK', 'BOX'].includes(input.unit)
+    )
+      throw new AppException(
+        InventoryErrorCode.INVALID_MOVEMENT,
+        'Contents per piece only apply to products counted in pieces, packs or boxes.',
+        HttpStatus.BAD_REQUEST,
+      );
+    return { contentSize: size?.toFixed(3) ?? null, contentUnit: unit };
   }
 
   private toMovementDto(row: MovementRecord): InventoryMovementDto {

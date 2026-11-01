@@ -245,9 +245,15 @@ export interface ProductForm {
   supplierId: string;
   reorderThreshold: string;
   isActive: boolean;
+  /** Inventory Phase 2: what one piece/pack/box contains ("195" + "MILLILITER"), for service recipes. */
+  contentSize: string;
+  contentUnit: string;
 }
 
-export const EMPTY_PRODUCT: ProductForm = { name: "", sku: "", unit: "EACH", categoryId: "", supplierId: "", reorderThreshold: "", isActive: true };
+export const EMPTY_PRODUCT: ProductForm = { name: "", sku: "", unit: "EACH", categoryId: "", supplierId: "", reorderThreshold: "", isActive: true, contentSize: "", contentUnit: "" };
+
+/** Stock counted in these units can say what one counted unit contains. */
+export const COUNTED_UNITS: readonly string[] = ["EACH", "PACK", "BOX"];
 
 export type ProductErrors = Partial<Record<keyof ProductForm, string>>;
 
@@ -260,7 +266,21 @@ export function productFormFrom(p: InventoryProductDto): ProductForm {
     supplierId: p.supplier?.id ?? "",
     reorderThreshold: trimDecimal(p.reorderThreshold),
     isActive: p.isActive,
+    contentSize: p.contentSize ? trimDecimal(p.contentSize) : "",
+    contentUnit: p.contentUnit ?? "",
   };
+}
+
+/** "One piece contains": both or neither, a positive amount, only for stock counted in pieces/packs/boxes. */
+function validateContent(form: ProductForm, errors: ProductErrors): { contentSize: number; contentUnit: Unit } | null {
+  const size = form.contentSize.trim();
+  if (!COUNTED_UNITS.includes(form.unit) || (!size && !form.contentUnit)) return null;
+  const n = Number(size.replace(/,/g, ""));
+  if (!size || !form.contentUnit) errors.contentSize = "Give both the amount and its unit, or leave both empty.";
+  else if (!Number.isFinite(n) || n <= 0) errors.contentSize = "Enter an amount above 0.";
+  else if (!isUnit(form.contentUnit)) errors.contentSize = "Choose a unit.";
+  else return { contentSize: Math.round(n * 1000) / 1000, contentUnit: form.contentUnit as Unit };
+  return null;
 }
 
 function validateProductCommon(form: ProductForm): { errors: ProductErrors; threshold: number } {
@@ -282,6 +302,9 @@ export function buildCreateProduct(form: ProductForm): { body: CreateInventoryPr
   if (form.sku.trim()) body.sku = form.sku.trim();
   if (form.categoryId) body.categoryId = form.categoryId;
   if (form.supplierId) body.supplierId = form.supplierId;
+  const content = validateContent(form, errors);
+  if (errors.contentSize) return { body: null, errors };
+  if (content) Object.assign(body, content);
   return { body, errors };
 }
 
@@ -296,6 +319,13 @@ export function buildProductPatch(original: InventoryProductDto, form: ProductFo
   if ((form.supplierId || null) !== (original.supplier?.id ?? null)) body.supplierId = form.supplierId || null;
   if (threshold !== Number(original.reorderThreshold)) body.reorderThreshold = threshold;
   if (form.isActive !== original.isActive) body.isActive = form.isActive;
+  const content = validateContent({ ...form, unit: original.unit }, errors);
+  if (errors.contentSize) return { body: null, errors, changed: false };
+  const before = original.contentSize ? Number(original.contentSize) : null;
+  if ((content?.contentSize ?? null) !== before || (content?.contentUnit ?? null) !== (original.contentUnit ?? null)) {
+    body.contentSize = content?.contentSize ?? null;
+    body.contentUnit = content?.contentUnit ?? null;
+  }
   return { body: Object.keys(body).length > 0 ? body : null, errors, changed: Object.keys(body).length > 0 };
 }
 

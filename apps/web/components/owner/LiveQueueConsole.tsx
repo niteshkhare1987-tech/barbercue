@@ -19,6 +19,7 @@ import { ownerVoiceAnnouncements, setVoiceEnabled, speakOwnerVoice, useVoiceEnab
 import { formatShopTime } from "./format";
 import { InvoiceAction } from "./InvoiceActions";
 import { NewQueueCustomerDialog } from "./NewQueueCustomerDialog";
+import { ServiceUsageDialog } from "./inventory/ServiceUsageDialog";
 import { useOwnerShell } from "./OwnerShell";
 import { Badge, Banner, Btn, BtnLink, Card, Dialog, EmptyState, Field, PageHead, Skeleton, Tabs } from "./parts";
 import ui from "./owner.module.css";
@@ -95,6 +96,8 @@ export function LiveQueueConsole({ salonId }: { salonId: string }) {
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  // Inventory Phase 2: "which products did you use?" before a service is completed.
+  const [usageFor, setUsageFor] = useState<{ entryId: string; sessionId: string; who: string } | null>(null);
   const [live, setLive] = useState(true);
   const [freshIds, setFreshIds] = useState<string[]>([]);
   const [skipReasons, setSkipReasons] = useState<Record<string, string>>({});
@@ -525,7 +528,7 @@ export function LiveQueueConsole({ salonId }: { salonId: string }) {
               {inService.map((entry) => (
                 <EntryCard key={entry.id} entry={entry} tone="in-service">
                   <div className={ui.entryActions}>
-                    <Btn variant="primary" small icon="check" disabled={busy !== null || !entry.activeServiceSessionId} onClick={() => void run(`done-${entry.id}`, () => apiFetch(`${DASHBOARD_PATHS.dashboard}/${DASHBOARD_PATHS.serviceSessions}/${entry.activeServiceSessionId}/${DASHBOARD_PATHS.complete}`, { method: "POST" }), `${whoLabel(entry)} — service completed.`)}>
+                    <Btn variant="primary" small icon="check" disabled={busy !== null || !entry.activeServiceSessionId} onClick={() => entry.activeServiceSessionId && setUsageFor({ entryId: entry.id, sessionId: entry.activeServiceSessionId, who: whoLabel(entry) })}>
                       Complete service
                     </Btn>
                     <Btn small onClick={() => setAssignFor(assignFor === entry.id ? null : entry.id)}>
@@ -658,6 +661,15 @@ export function LiveQueueConsole({ salonId }: { salonId: string }) {
           )}
         </div>
       </div>
+
+      {usageFor && (
+        <ServiceUsageDialog
+          queueEntryId={usageFor.entryId}
+          mode="complete"
+          onClose={() => setUsageFor(null)}
+          onComplete={() => run(`done-${usageFor.entryId}`, () => apiFetch(`${DASHBOARD_PATHS.dashboard}/${DASHBOARD_PATHS.serviceSessions}/${usageFor.sessionId}/${DASHBOARD_PATHS.complete}`, { method: "POST" }), `${usageFor.who} — service completed.`)}
+        />
+      )}
 
       {addOpen && (
         <NewQueueCustomerDialog

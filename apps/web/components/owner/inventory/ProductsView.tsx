@@ -5,6 +5,7 @@ import { INVENTORY_PATHS } from "@barbercue/shared";
 import type { InventoryProductDto } from "@barbercue/shared";
 import { apiFetch, ApiError } from "../../../lib/api";
 import {
+  COUNTED_UNITS,
   EMPTY_PRODUCT,
   UNIT_OPTIONS,
   buildCreateProduct,
@@ -108,6 +109,21 @@ function ProductDialog({
           <input id="prod-threshold" className={ui.input} inputMode="decimal" value={form.reorderThreshold} onChange={(e) => set({ reorderThreshold: e.target.value })} aria-invalid={Boolean(errors.reorderThreshold)} autoComplete="off" />
         </Field>
       </div>
+      {COUNTED_UNITS.includes(original?.unit ?? form.unit) && (
+        <div className={ui.rowWrap}>
+          <Field label={`One ${unitShort(original?.unit ?? form.unit)} contains (optional)`} htmlFor="prod-content" hint={errors.contentSize ?? "For example 195 ml for a bottle. Lets service recipes in ml or g be taken off stock."}>
+            <input id="prod-content" className={ui.input} inputMode="decimal" value={form.contentSize} onChange={(e) => set({ contentSize: e.target.value })} aria-invalid={Boolean(errors.contentSize)} autoComplete="off" />
+          </Field>
+          <Field label="Contents unit" htmlFor="prod-content-unit">
+            <select id="prod-content-unit" className={ui.input} value={form.contentUnit} onChange={(e) => set({ contentUnit: e.target.value })}>
+              <option value="">—</option>
+              {UNIT_OPTIONS.filter((u) => ["MILLILITER", "LITER", "GRAM", "KILOGRAM", "EACH"].includes(u.value)).map((u) => (
+                <option key={u.value} value={u.value}>{u.label}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
       <div className={ui.rowWrap}>
         <Field label="Category (optional)" htmlFor="prod-category">
           <select id="prod-category" className={ui.input} value={form.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>

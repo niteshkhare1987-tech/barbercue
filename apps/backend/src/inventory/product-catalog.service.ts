@@ -393,6 +393,8 @@ export class ProductCatalogService {
         name: true,
         verificationStatus: true,
         submittedBySalonId: true,
+        packSize: true,
+        packUnit: true,
       },
     });
     if (
@@ -447,6 +449,19 @@ export class ProductCatalogService {
               normalizedName: normalizeProductName(productName).slice(0, 120),
               // Counted in packs/pieces unless the salon says otherwise; packUnit describes one pack's contents.
               unit: input.unit ?? 'EACH',
+              // One counted piece holds one catalog pack (e.g. a 195 ml bottle), so service
+              // recipes in ml/g can be taken off stock counted in pieces.
+              ...(['EACH', 'PACK', 'BOX'].includes(input.unit ?? 'EACH') &&
+              catalog.packSize?.greaterThan(0) &&
+              catalog.packUnit &&
+              ['GRAM', 'KILOGRAM', 'MILLILITER', 'LITER', 'EACH'].includes(
+                catalog.packUnit,
+              )
+                ? {
+                    contentSize: catalog.packSize,
+                    contentUnit: catalog.packUnit,
+                  }
+                : {}),
               supplierId: input.supplierId ?? null,
               reorderThreshold: (input.reorderThreshold ?? 0).toFixed(3),
               sellingPrice: input.sellingPrice?.toFixed(2) ?? null,

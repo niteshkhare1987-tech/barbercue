@@ -38,6 +38,7 @@ import { zonedDayBounds } from '../common/timezone/timezone';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QueueAutoAssignTrigger } from './queue-auto-assign.trigger';
+import { ServiceCompletedHook } from './service-completed.hook';
 
 // Allowed from 15 minutes before slotStart onward, no upper bound — the automatic no-show sweep
 // that would otherwise cap lateness isn't built in this phase (see the plan's explicit scoping).
@@ -107,6 +108,8 @@ export class QueueService {
     private readonly notifications: NotificationsService,
     // Optional so unit tests (and any context without the owner-operations module) are unaffected.
     @Optional() private readonly autoAssignTrigger?: QueueAutoAssignTrigger,
+    // Inventory Phase 2: salon-approved automatic product deduction after a completed service.
+    @Optional() private readonly serviceCompletedHook?: ServiceCompletedHook,
   ) {}
 
   /** Lets the automatic allocator react to anything that may have freed a barber/chair or added a
@@ -2224,6 +2227,12 @@ export class QueueService {
       { salonId: session.queueEntry.salonId, sessionId },
     );
 
+    this.serviceCompletedHook?.notify({
+      salonId: session.queueEntry.salonId,
+      queueEntryId: session.queueEntryId,
+      sessionId,
+      actorUserId: userId,
+    });
     await this.recomputeEtas(session.queueEntry.salonId);
     this.realtime.emitQueueUpdated(session.queueEntry.salonId);
     this.triggerAutoAssign(session.queueEntry.salonId);

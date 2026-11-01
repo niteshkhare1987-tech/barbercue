@@ -40,6 +40,15 @@ const product = (over = {}) => ({
 });
 const movement = (over = {}) => ({ id: "m1", salonId: "s1", productId: "p1", productName: "Shampoo", sku: "SH-1", kind: "CONSUMPTION", quantityDelta: "-8.000", unitCost: null, stockAfter: "4.500", averageUnitCostAfter: "80.00", supplier: null, actorUserId: "u", reason: "Used in colour", reference: null, recordedAt: "2026-10-17T10:00:00.000Z", ...over });
 const report = (over = {}) => ({ productCount: 1, lowStockCount: 1, estimatedStockValue: "360.00", valuationBasis: "weighted-average-cost", currency: "INR", movementCounts: { OPENING: 1, PURCHASE: 0, CONSUMPTION: 1, ADJUSTMENT: 0 }, lowStockProducts: [product()], ...over });
+const dashboard = (over = {}) => ({
+  asOf: "2026-11-01", currency: "INR",
+  totals: { activeProducts: 1, lowStock: 1, outOfStock: 0, stockValue: "360.00", expiringSoon: 0 },
+  usageByDay: Array.from({ length: 30 }, (_, i) => ({ day: `2026-10-${String(i + 3).padStart(2, "0")}`, value: i === 29 ? "640.00" : "0.00", entries: i === 29 ? 1 : 0 })),
+  usage: { today: "640.00", last7Days: "640.00", last30Days: "640.00" },
+  purchases30Days: { value: "0.00", entries: 0 }, wastage30Days: { value: "0.00", entries: 0 }, retailOut30Days: { value: "0.00", entries: 0 },
+  byService30Days: [{ serviceId: "sv1", serviceName: "Hair colour", visits: 2, value: "640.00" }],
+  topProducts30Days: [], expiring: [], visitsMissingUsage7Days: 1, ...over,
+});
 const page = (items, nextCursor = null) => ({ items, nextCursor, hasMore: nextCursor !== null });
 
 let calls;
@@ -52,6 +61,7 @@ function install(overrides = {}) {
     products: () => page([product()]),
     movements: () => page([movement()]),
     report: () => report(),
+    dashboard: () => dashboard(),
     ...overrides,
   };
   apiFetch.mockImplementation(async (path, opts) => {
@@ -85,8 +95,8 @@ describe("InventoryTabs", () => {
     mockPath = "/dashboard/salons/s1/inventory/low-stock";
     const r = await mount(<InventoryTabs salonId="s1" />);
     const links = r.root.findAll((n) => n.type === "a");
-    expect(links).toHaveLength(11);
-    expect(INVENTORY_SECTIONS).toHaveLength(11);
+    expect(links).toHaveLength(13);
+    expect(INVENTORY_SECTIONS).toHaveLength(13);
     expect(links.find((l) => l.props["aria-current"] === "page").props.href).toBe("/dashboard/salons/s1/inventory/low-stock");
     expect(links.filter((l) => l.props["aria-current"]).length).toBe(1);
   });
@@ -345,5 +355,10 @@ describe("stock views", () => {
     const t = text(await mount(<OverviewView salonId="s1" />));
     expect(t).toMatch(/See\s+1\s+low on stock/);
     expect(t).toContain("Latest stock changes");
+    // The Phase 2 dashboard: server figures only, and a nudge for visits without products recorded.
+    expect(t).toContain("Products used (at cost)");
+    expect(t).toContain("₹640");
+    expect(t).toContain("Hair colour");
+    expect(t).toMatch(/1\s+visit\s+in the last 7 days have no products recorded/);
   });
 });

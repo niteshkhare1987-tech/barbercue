@@ -8,6 +8,7 @@ import { newIdempotencyKey } from "../../lib/idempotency";
 import { getRealtimeSocket, joinSalonRoom, onReconnect } from "../../lib/realtime";
 import { formatShopTime } from "./format";
 import { NewQueueCustomerDialog } from "./NewQueueCustomerDialog";
+import { ServiceUsageDialog } from "./inventory/ServiceUsageDialog";
 import { Badge, Banner, Btn, BtnLink, Card, Dialog, EmptyState, Field, Kpi, PageHead, Skeleton } from "./parts";
 import ui from "./owner.module.css";
 
@@ -34,6 +35,8 @@ export function StaffHome({ salonId }: { salonId: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmComplete, setConfirmComplete] = useState(false);
+  // Inventory Phase 2: products used, chosen by photo, before the service is completed.
+  const [usageFor, setUsageFor] = useState<{ queueEntryId: string; sessionId: string } | null>(null);
   const [cancelFor, setCancelFor] = useState<StaffAppointmentDto | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const timer = useRef<number | null>(null);
@@ -316,15 +319,23 @@ export function StaffHome({ salonId }: { salonId: string }) {
               icon="check"
               disabled={busy !== null}
               onClick={() => {
-                const id = current.serviceSessionId!;
                 setConfirmComplete(false);
-                void act("complete", () => apiFetch(`${DASHBOARD_PATHS.dashboard}/${DASHBOARD_PATHS.serviceSessions}/${id}/${DASHBOARD_PATHS.complete}`, { method: "POST" }), "Service completed.");
+                setUsageFor({ queueEntryId: current.queueEntryId, sessionId: current.serviceSessionId! });
               }}
             >
               Complete Service
             </Btn>
           </div>
         </Dialog>
+      )}
+
+      {usageFor && (
+        <ServiceUsageDialog
+          queueEntryId={usageFor.queueEntryId}
+          mode="complete"
+          onClose={() => setUsageFor(null)}
+          onComplete={() => act("complete", () => apiFetch(`${DASHBOARD_PATHS.dashboard}/${DASHBOARD_PATHS.serviceSessions}/${usageFor.sessionId}/${DASHBOARD_PATHS.complete}`, { method: "POST" }), "Service completed.")}
+        />
       )}
 
       {cancelFor && (

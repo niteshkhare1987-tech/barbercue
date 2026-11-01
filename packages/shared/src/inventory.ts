@@ -110,6 +110,10 @@ export const createInventoryProductSchema = z
     sellingPrice: nonNegativeMoney.optional().nullable(),
     storageLocation: z.string().trim().max(80).optional().nullable(),
     minimumOrderQuantity: positiveQuantity.optional().nullable(),
+    // Inventory Phase 2: what one counted piece/pack/box contains (1 bottle = 195 ml), so a
+    // service recipe in ml can be taken off stock counted in pieces.
+    contentSize: positiveQuantity.optional().nullable(),
+    contentUnit: z.nativeEnum(InventoryUnit).optional().nullable(),
     reorderThreshold: z
       .number()
       .finite()
@@ -300,6 +304,8 @@ export interface InventoryProductDto {
   sellingPrice?: string | null;
   storageLocation?: string | null;
   minimumOrderQuantity?: string | null;
+  contentSize?: string | null;
+  contentUnit?: InventoryUnit | null;
 }
 
 export interface InventoryMovementDto {

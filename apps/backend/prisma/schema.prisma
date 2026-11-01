@@ -464,6 +464,8 @@ model User {
   inventoryMovements            InventoryMovement[]
   globalProductsCreated  GlobalProduct[] @relation("GlobalProductCreator")
   globalProductsReviewed GlobalProduct[] @relation("GlobalProductReviewer")
+  serviceUsagesRecorded  ServiceUsage[]  @relation("ServiceUsageRecordedBy")
+  serviceUsagesReversed  ServiceUsage[]  @relation("ServiceUsageReversedBy")
   otpRequests                   OtpRequest[]             @relation("OtpRequestSubject")
   premiumSubscriptions          CustomerSubscription[]
   // Phase 18 (Shop / Barber Verification Foundation) — an owner submitting evidence, and a
@@ -1019,6 +1021,8 @@ model Salon {
   inventoryProducts           InventoryProduct[]
   inventoryMovements          InventoryMovement[]
   globalProductSubmissions GlobalProduct[] @relation("GlobalProductSubmissions")
+  serviceProductRules      ServiceProductRule[]
+  serviceUsages            ServiceUsage[]
   demoWorkspace               OwnerDemoWorkspace?
 
   @@unique([cityId, slug])
@@ -1145,6 +1149,7 @@ model SalonStaff {
   workingHours         StaffWorkingHours[]
   // Phase 18 — at most one row (VerificationRequest.staffId is @@unique).
   verification         VerificationRequest?
+  serviceUsages        ServiceUsage[]
 
   @@map("salon_staff")
 }
@@ -1241,6 +1246,9 @@ model Service {
   // Multi-service booking core mission — see BookingService's own doc comment.
   bookingServices     BookingService[]
   offerServices       OfferService[]
+  // Inventory Phase 2 — product recipe lines and the products recorded as used.
+  productRules        ServiceProductRule[]
+  productUsages       ServiceUsage[]
 
   @@index([salonId, categoryId, subcategoryId])
   @@unique([salonId, id])
@@ -1766,6 +1774,7 @@ model QueueEntry {
   updatedAt DateTime @updatedAt
 
   serviceSessions ServiceSession[]
+  serviceUsages   ServiceUsage[]
 
   @@map("queue_entries")
 }
@@ -2031,6 +2040,7 @@ model InventoryCategory {
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 
   products InventoryProduct[]
+  serviceRules ServiceProductRule[]
 
   @@unique([id, salonId])
   @@unique([salonId, normalizedName])
@@ -2084,8 +2094,13 @@ model InventoryProduct {
   sellingPrice         Decimal?       @db.Decimal(12, 2)
   storageLocation      String?        @db.VarChar(80)
   minimumOrderQuantity Decimal?       @db.Decimal(12, 3)
+  // Inventory Phase 2: what one counted piece/pack/box contains (1 bottle = 195 ml).
+  contentSize          Decimal?       @db.Decimal(12, 3)
+  contentUnit          InventoryUnit?
 
-  movements InventoryMovement[]
+  movements         InventoryMovement[]
+  recipeDefaults    ServiceProductRule[]
+  serviceUsageItems ServiceUsageItem[]
 
   @@unique([id, salonId])
   @@unique([salonId, sku])
@@ -2122,6 +2137,9 @@ model InventoryMovement {
   batchNumber          String?               @db.VarChar(60)
   expiryDate           DateTime?             @db.Date
   transferGroupId      String?               @db.Uuid
+  // Inventory Phase 2: the service usage line this entry deducted, or the correction that undid it.
+  serviceUsageItem         ServiceUsageItem?     @relation("ServiceUsageMovement")
+  serviceUsageReversalItem ServiceUsageItem?     @relation("ServiceUsageReversalMovement")
 
   @@unique([salonId, idempotencyKey])
   @@index([salonId, recordedAt, id])
@@ -2630,4 +2648,97 @@ model CustomerFavorite {
   @@index([userId, createdAt])
   @@index([salonId])
   @@map("customer_favorites")
+}
+
+// ---------- Inventory Phase 2: service consumption ----------
+
+enum ServiceUsageStatus {
+  RECORDED
+  REVERSED
+}
+
+enum ServiceUsageSource {
+  MANUAL
+  AUTO
+}
+
+/// A service's recipe line: which of the salon's inventory categories it uses and how much
+/// ("Shaving: shaving cream, 10 ml"). A default product is only deducted without a choice when the
+/// salon ticked autoDeduct — a default is never assumed to have been used silently.
+model ServiceProductRule {
+  id                  String            @id @default(uuid())
+  salonId             String
+  salon               Salon             @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  serviceId           String
+  service             Service           @relation(fields: [salonId, serviceId], references: [salonId, id], onDelete: Restrict)
+  inventoryCategoryId String
+  inventoryCategory   InventoryCategory @relation(fields: [inventoryCategoryId, salonId], references: [id, salonId], onDelete: Restrict)
+  quantity            Decimal           @db.Decimal(12, 3)
+  unit                InventoryUnit
+  defaultProductId    String?
+  defaultProduct      InventoryProduct? @relation(fields: [defaultProductId, salonId], references: [id, salonId], onDelete: Restrict)
+  autoDeduct          Boolean           @default(false)
+  sortOrder           Int               @default(0)
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+
+  usageItems ServiceUsageItem[]
+
+  @@unique([serviceId, inventoryCategoryId])
+  @@index([salonId, serviceId])
+  @@map("service_product_rules")
+}
+
+/// Products recorded as used for one service in one visit (queue entry). At most one RECORDED row
+/// per (queueEntryId, serviceId) — a partial unique index in the migration — so a repeated
+/// completion event or a double tap can never deduct twice; a correction reverses it first.
+model ServiceUsage {
+  id               String             @id @default(uuid())
+  salonId          String
+  salon            Salon              @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  queueEntryId     String
+  queueEntry       QueueEntry         @relation(fields: [queueEntryId], references: [id], onDelete: Restrict)
+  serviceId        String
+  service          Service            @relation(fields: [salonId, serviceId], references: [salonId, id], onDelete: Restrict)
+  staffId          String?
+  staff            SalonStaff?        @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  status           ServiceUsageStatus @default(RECORDED)
+  source           ServiceUsageSource @default(MANUAL)
+  recordedByUserId String
+  recordedBy       User               @relation("ServiceUsageRecordedBy", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  recordedAt       DateTime           @default(now()) @db.Timestamptz(6)
+  reversedAt       DateTime?          @db.Timestamptz(6)
+  reversedByUserId String?
+  reversedBy       User?              @relation("ServiceUsageReversedBy", fields: [reversedByUserId], references: [id], onDelete: Restrict)
+  reversalReason   String?            @db.VarChar(300)
+
+  items ServiceUsageItem[]
+
+  @@index([salonId, recordedAt])
+  @@index([queueEntryId])
+  @@map("service_usages")
+}
+
+/// One product taken off stock for a service usage, with what the user entered (10 ml) and what
+/// the ledger deducted in the product's own unit (0.051 bottles). Each line owns its ledger entry.
+model ServiceUsageItem {
+  id                 String              @id @default(uuid())
+  usageId            String
+  usage              ServiceUsage        @relation(fields: [usageId], references: [id], onDelete: Restrict)
+  salonId            String
+  productId          String
+  product            InventoryProduct    @relation(fields: [productId, salonId], references: [id, salonId], onDelete: Restrict)
+  ruleId             String?
+  rule               ServiceProductRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  quantity           Decimal             @db.Decimal(12, 3)
+  enteredQuantity    Decimal             @db.Decimal(12, 3)
+  enteredUnit        InventoryUnit
+  movementId         String              @unique
+  movement           InventoryMovement   @relation("ServiceUsageMovement", fields: [movementId], references: [id], onDelete: Restrict)
+  reversalMovementId String?             @unique
+  reversalMovement   InventoryMovement?  @relation("ServiceUsageReversalMovement", fields: [reversalMovementId], references: [id], onDelete: Restrict)
+
+  @@unique([usageId, productId])
+  @@index([productId])
+  @@map("service_usage_items")
 }
