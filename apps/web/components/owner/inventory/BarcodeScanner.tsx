@@ -7,6 +7,22 @@ import ui from "../owner.module.css";
 import styles from "./scan.module.css";
 
 type Hint = "UPC_E" | undefined;
+type ZxingLibrary = typeof import("@zxing/library");
+
+/** After this long live without a read, show tips for holding the product. */
+const SCAN_TIP_AFTER_MS = 6000;
+
+/** Product barcodes plus QR / Data Matrix; TRY_HARDER keeps reading slightly blurred or tilted webcam frames. */
+function scanHints(BarcodeFormat: ZxingLibrary["BarcodeFormat"], DecodeHintType: ZxingLibrary["DecodeHintType"]) {
+  const hints = new Map();
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+    BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
+    BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF,
+    BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX,
+  ]);
+  hints.set(DecodeHintType.TRY_HARDER, true);
+  return hints;
+}
 type Controls = { stop: () => void };
 
 /**
@@ -27,6 +43,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
   const [deviceIndex, setDeviceIndex] = useState<number | null>(null);
   const [manual, setManual] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
+  const [tipFor, setTipFor] = useState<string | null>(null);
 
   useEffect(() => {
     busyRef.current = busy;
@@ -92,21 +109,18 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
       controlsRef.current?.stop();
       try {
         const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
-        const hints = new Map();
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-          BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
-          BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF,
-          BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX,
-        ]);
-        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 150 });
+        const reader = new BrowserMultiFormatReader(scanHints(BarcodeFormat, DecodeHintType), { delayBetweenScanAttempts: 150 });
         const chosen = index !== null ? devices[index] : undefined;
         const video: MediaTrackConstraints = chosen
-          ? { deviceId: { exact: chosen.deviceId } }
-          : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+          ? { deviceId: { exact: chosen.deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+          : { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } };
         controlsRef.current = await reader.decodeFromConstraints({ video, audio: false }, videoRef.current!, (result) => {
           if (result) handle(result.getText(), result.getBarcodeFormat() === BarcodeFormat.UPC_E ? "UPC_E" : undefined, true);
         });
         setPhase("live");
+        // Continuous autofocus where the camera supports it (many laptop webcams are fixed-focus).
+        const [track] = ((videoRef.current?.srcObject as MediaStream | null)?.getVideoTracks() ?? []);
+        void track?.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] }).catch(() => undefined);
         // Camera names are only readable after permission was granted.
         const list = await BrowserMultiFormatReader.listVideoInputDevices().catch(() => []);
         setDevices(list);
@@ -117,6 +131,15 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
     },
     [devices, handle],
   );
+
+  // Live for a while with nothing read: most often the barcode is too close for the camera to focus.
+  const tipKey = `${phase}:${flash ?? ""}`;
+  useEffect(() => {
+    if (phase !== "live") return;
+    const timer = setTimeout(() => setTipFor(tipKey), SCAN_TIP_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [phase, tipKey]);
+  const showTip = phase === "live" && tipFor === tipKey;
 
   // Always release the camera when leaving the screen.
   useEffect(() => () => stop(), [stop]);
@@ -138,8 +161,8 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
     setError(null);
     const url = URL.createObjectURL(file);
     try {
-      const [{ BrowserMultiFormatReader }, { BarcodeFormat }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
-      const result = await new BrowserMultiFormatReader().decodeFromImageUrl(url);
+      const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
+      const result = await new BrowserMultiFormatReader(scanHints(BarcodeFormat, DecodeHintType)).decodeFromImageUrl(url);
       handle(result.getText(), result.getBarcodeFormat() === BarcodeFormat.UPC_E ? "UPC_E" : undefined, false);
     } catch {
       setError("No barcode could be read from that photo. Try a sharper, closer photo with the whole barcode in view, or type the number.");
@@ -186,6 +209,14 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
       </div>
 
       {error && <div className={ui.mt12}><Banner tone="warn">{error}</Banner></div>}
+      {showTip && !error && (
+        <div className={ui.mt12}>
+          <Banner tone="info">
+            Not reading yet? Hold the barcode flat, in good light, with its lines across the screen. Move it slowly further away
+            until it looks sharp — laptop cameras can&apos;t focus very close. Or use &quot;Photo of a barcode&quot;, or type the number.
+          </Banner>
+        </div>
+      )}
 
       <form
         className={`${ui.rowWrap} ${ui.mt12}`}
