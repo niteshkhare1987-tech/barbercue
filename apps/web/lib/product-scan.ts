@@ -91,3 +91,29 @@ export function cameraErrorText(error: unknown): string {
     return "The camera is being used by another app. Close it and try again, or type the barcode below.";
   return "The camera could not start. Type the barcode below, or upload a photo of the barcode.";
 }
+
+export type ScannedCode = { ok: true; code: string } | { ok: false; reason: string };
+
+/**
+ * Turns what a scanner read into a product code. Ordinary barcodes pass through; QR / Data Matrix
+ * codes that carry a GS1 product number (GS1 Digital Link "…/01/<GTIN>" or the element string
+ * "(01)<GTIN>…") give that number; a QR code holding a website link or other text is not a product
+ * code, so it is refused with a plain explanation instead of being saved as a "barcode".
+ */
+export function codeFromScan(raw: string): ScannedCode {
+  // Drop the symbology prefix some scanners add (]Q3, ]d2, ]C1) and GS separators.
+  const text = raw.trim().replace(/^\][A-Za-z]\d/, "").replace(/\x1d/g, "");
+  if (!text) return { ok: false, reason: "Nothing was read. Try again." };
+  const digitalLink = text.match(/^https?:\/\/[^\s]+?\/01\/(\d{8,14})(?:[/?#]|$)/i);
+  if (digitalLink) return { ok: true, code: digitalLink[1] };
+  const elementString = text.match(/^\(?01\)?(\d{14})/);
+  if (elementString && (text.startsWith("(") || text.length > 16)) return { ok: true, code: elementString[1] };
+  if (/^[a-z][a-z0-9+.-]*:/i.test(text) || /^www\./i.test(text)) {
+    return { ok: false, reason: "This QR code is a website link, not a product code. Scan the barcode (the black lines with numbers under them) instead, or type its number." };
+  }
+  if (/^[\d\s-]+$/.test(text)) return { ok: true, code: text };
+  if (/\s/.test(text) || text.length > 48) {
+    return { ok: false, reason: "This code holds text, not a product code. Scan the product's barcode instead, or type its number." };
+  }
+  return { ok: true, code: text };
+}

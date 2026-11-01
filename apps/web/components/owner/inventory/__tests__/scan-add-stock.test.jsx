@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import TestRenderer from 'react-test-renderer';
 import { Role } from '@barbercue/shared';
-import { cameraErrorText, createScannerKeyBuffer, parsePackagingText } from '../../../../lib/product-scan';
+import { cameraErrorText, codeFromScan, createScannerKeyBuffer, parsePackagingText } from '../../../../lib/product-scan';
 import { canOpenAdminPath } from '../../../../lib/admin-route-access';
 import { adminNavFor } from '../../../admin/shell/admin-nav';
 import { BarcodeScanner } from '../BarcodeScanner';
@@ -36,6 +36,17 @@ describe('packaging text and hardware scanners', () => {
     expect(codes).toEqual(['8901234567890']);
   });
 
+  it('QR / Data Matrix codes give the product number; links and text are refused', () => {
+    expect(codeFromScan('8901234567890')).toEqual({ ok: true, code: '8901234567890' });
+    expect(codeFromScan('https://id.gs1.org/01/08901234567890/10/LOT1')).toEqual({ ok: true, code: '08901234567890' });
+    expect(codeFromScan(']d201089012345678901727063010B42')).toEqual({ ok: true, code: '08901234567890' });
+    expect(codeFromScan('(01)08901234567890')).toEqual({ ok: true, code: '08901234567890' });
+    expect(codeFromScan('SALON-SKU-42')).toEqual({ ok: true, code: 'SALON-SKU-42' });
+    expect(codeFromScan('https://brand.example/offer')).toMatchObject({ ok: false, reason: expect.stringMatching(/website link/) });
+    expect(codeFromScan('www.brand.example')).toMatchObject({ ok: false });
+    expect(codeFromScan('Hello from the brand')).toMatchObject({ ok: false, reason: expect.stringMatching(/holds text/) });
+  });
+
   it('explains camera problems in plain words', () => {
     const named = (name) => Object.assign(new Error('x'), { name });
     expect(cameraErrorText(named('NotAllowedError'))).toMatch(/permission was turned off/);
@@ -63,6 +74,16 @@ describe('BarcodeScanner', () => {
     act(() => tree.root.find((n) => n.type === 'input' && n.props.inputMode === 'numeric').props.onChange({ target: { value: ' 5901234123457 ' } }));
     act(() => tree.root.findByType('form').props.onSubmit({ preventDefault() {} }));
     expect(onDetected).toHaveBeenCalledWith('5901234123457', undefined);
+  });
+
+  it('a website QR code shows why it was not used instead of looking it up', () => {
+    const onDetected = jest.fn();
+    let tree;
+    act(() => { tree = TestRenderer.create(<BarcodeScanner onDetected={onDetected} busy={false} />); });
+    act(() => tree.root.find((n) => n.type === 'input' && n.props.inputMode === 'numeric').props.onChange({ target: { value: 'https://brand.example' } }));
+    act(() => tree.root.findByType('form').props.onSubmit({ preventDefault() {} }));
+    expect(onDetected).not.toHaveBeenCalled();
+    expect(textOf(tree.root)).toContain('website link, not a product code');
   });
 
   it('says why when the browser has no camera access', async () => {

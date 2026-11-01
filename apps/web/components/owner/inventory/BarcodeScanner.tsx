@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cameraErrorText, createScannerKeyBuffer } from "../../../lib/product-scan";
+import { cameraErrorText, codeFromScan, createScannerKeyBuffer } from "../../../lib/product-scan";
 import { Banner, Btn } from "../parts";
 import ui from "../owner.module.css";
 import styles from "./scan.module.css";
@@ -10,7 +10,7 @@ type Hint = "UPC_E" | undefined;
 type Controls = { stop: () => void };
 
 /**
- * Browser barcode scanner for phones (Android, iPhone Safari), laptop webcams and USB/Bluetooth
+ * Browser barcode / QR scanner for phones (Android, iPhone Safari), laptop webcams and USB/Bluetooth
  * scanners — no app needed. Uses ZXing (open source, loaded only when the camera starts). Prefers
  * the rear camera, can switch cameras, beeps/vibrates on a read, ignores the same code while it is
  * being handled, and always stops the camera when scanning ends or the screen closes. Manual entry
@@ -53,14 +53,20 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
   /** One place every input (camera, photo, USB scanner, typing) goes through. */
   const handle = useCallback(
     (raw: string, hint: Hint, fromCamera: boolean) => {
-      const code = raw.trim();
-      if (!code || busyRef.current) return;
+      const read = raw.trim();
+      if (!read || busyRef.current) return;
       const now = Date.now();
-      if (fromCamera && lastRef.current && lastRef.current.code === code && now - lastRef.current.at < 3000) return;
-      lastRef.current = { code, at: now };
+      if (fromCamera && lastRef.current && lastRef.current.code === read && now - lastRef.current.at < 3000) return;
+      lastRef.current = { code: read, at: now };
       if (fromCamera) confirmRead();
-      setFlash(code);
-      onDetected(code, hint);
+      const scanned = codeFromScan(read);
+      if (!scanned.ok) {
+        setError(scanned.reason);
+        return;
+      }
+      setError(null);
+      setFlash(scanned.code);
+      onDetected(scanned.code, hint);
     },
     [confirmRead, onDetected],
   );
@@ -90,6 +96,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
         hints.set(DecodeHintType.POSSIBLE_FORMATS, [
           BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
           BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF,
+          BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX,
         ]);
         const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 150 });
         const chosen = index !== null ? devices[index] : undefined;
@@ -156,7 +163,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
         {phase !== "live" && (
           <div className={styles.placeholder}>
             <span aria-hidden="true">▥</span>
-            <p>{phase === "starting" ? "Starting the camera…" : "Point the camera at the product's barcode."}</p>
+            <p>{phase === "starting" ? "Starting the camera…" : "Point the camera at the product's barcode or QR code."}</p>
           </div>
         )}
       </div>
