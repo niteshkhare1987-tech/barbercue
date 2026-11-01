@@ -5,6 +5,7 @@ import {
   CATALOG_PATHS,
   INVENTORY_LOSS_KINDS,
   INVENTORY_PATHS,
+  type CatalogLinkCandidateDto,
   type CatalogLookupResultDto,
   type CatalogProductDto,
   type ExternalProductSuggestionDto,
@@ -66,6 +67,15 @@ export function ScanAddStock({ salonId }: { salonId: string }) {
     setError(null);
   };
 
+  /** Look the same barcode up again after it was added or linked, then say what happened. */
+  async function refresh(message: { done?: string; error?: string }) {
+    if (!lookup) return;
+    await find(lookup.barcode.display, lookup.hint);
+    if (message.done) setDone(message.done);
+    if (message.error) setError(message.error);
+  }
+  const candidates = lookup?.linkCandidates ?? [];
+
   return (
     <div className={ui.mt16}>
       <Card title="Scan a product" sub="Scan the barcode on the pack to find it in the FastQue product catalog, then add the stock you received.">
@@ -79,6 +89,9 @@ export function ScanAddStock({ salonId }: { salonId: string }) {
         {lookup && (lookup.status === "FOUND" || lookup.status === "FOUND_PENDING") && lookup.product && (
           <div className={ui.mt16}>
             <ProductCard product={lookup.product} stock={lookup.salonStock} />
+            {lookup.salonStock.length === 0 && candidates.length > 0 && (
+              <LinkExisting salonId={salonId} candidates={candidates} globalProductId={lookup.product.id} onLinked={(name) => void refresh({ done: linkedText(name) })} />
+            )}
             <ReceiveForm
               key={lookup.product.id}
               salonId={salonId}
@@ -95,6 +108,9 @@ export function ScanAddStock({ salonId }: { salonId: string }) {
             <Banner tone="info">
               Barcode {lookup.barcode.display} was added by another salon and is waiting for FastQue to check it. You can still add it to your stock under your own product name.
             </Banner>
+            {lookup.salonStock.length === 0 && candidates.length > 0 && (
+              <LinkExisting salonId={salonId} candidates={candidates} globalProductId={lookup.pendingProductId} onLinked={(name) => void refresh({ done: linkedText(name) })} />
+            )}
             <ReceiveForm salonId={salonId} catalogProductId={lookup.pendingProductId} needsName onDone={(text) => { setDone(text); reset(); }} />
           </div>
         )}
@@ -105,11 +121,75 @@ export function ScanAddStock({ salonId }: { salonId: string }) {
             barcode={lookup.barcode.display}
             hint={lookup.hint}
             suggestion={lookup.suggestion}
-            onCreated={(product) => setLookup({ ...lookup, status: "FOUND_PENDING", product, suggestion: null })}
+            candidates={candidates}
+            onCreated={(result) => void refresh(result)}
           />
         )}
       </div>
     </div>
+  );
+}
+
+const linkedText = (name: string) => `Barcode linked to "${name}". Scans now find it — add stock below.`;
+
+const candidateLabel = (c: CatalogLinkCandidateDto) =>
+  [c.name, c.sku ? `code ${c.sku}` : null, `${quantityText(c.stockOnHand, c.unit)} in stock`, c.likelyMatch ? "looks like this barcode" : null]
+    .filter(Boolean)
+    .join(" · ");
+
+async function linkBarcode(salonId: string, inventoryProductId: string, globalProductId: string) {
+  await apiFetch<InventoryProductDto>(`${inventoryBase(salonId)}/${INVENTORY_PATHS.products}/${inventoryProductId}/${CATALOG_PATHS.linkCatalog}`, {
+    method: "POST",
+    body: JSON.stringify({ globalProductId }),
+  });
+}
+
+/** A product added by hand before barcodes were used: attach this barcode to it instead of starting a second one. */
+function LinkExisting({
+  salonId,
+  candidates,
+  globalProductId,
+  onLinked,
+}: {
+  salonId: string;
+  candidates: CatalogLinkCandidateDto[];
+  globalProductId: string;
+  onLinked: (name: string) => void;
+}) {
+  const [choice, setChoice] = useState(candidates.find((c) => c.likelyMatch)?.inventoryProductId ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function link() {
+    const chosen = candidates.find((c) => c.inventoryProductId === choice);
+    if (!chosen) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await linkBarcode(salonId, chosen.inventoryProductId, globalProductId);
+      onLinked(chosen.name);
+    } catch (err) {
+      setError(errorText(err, "The barcode was not linked — try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Already in your Products?" sub="If you added this product by hand before, link the barcode to it. Its stock and history stay as they are, and scans will find it.">
+      <div className={ui.rowWrap}>
+        <Field label="Your product" htmlFor="link-existing">
+          <select id="link-existing" className={ui.input} value={choice} onChange={(e) => setChoice(e.target.value)}>
+            <option value="">— Choose a product —</option>
+            {candidates.map((c) => <option key={c.inventoryProductId} value={c.inventoryProductId}>{candidateLabel(c)}</option>)}
+          </select>
+        </Field>
+      </div>
+      {error && <div className={ui.mt12}><Banner tone="error">{error}</Banner></div>}
+      <div className={`${ui.rowWrap} ${ui.mt12}`}>
+        <Btn onClick={() => void link()} disabled={!choice || busy}>{busy ? "Linking…" : "Link barcode"}</Btn>
+      </div>
+    </Card>
   );
 }
 
@@ -331,17 +411,21 @@ function NewProductForm({
   barcode,
   hint,
   suggestion,
+  candidates,
   onCreated,
 }: {
   salonId: string;
   barcode: string;
   hint?: "UPC_E";
   suggestion: ExternalProductSuggestionDto | null;
-  onCreated: (product: CatalogProductDto) => void;
+  candidates: CatalogLinkCandidateDto[];
+  onCreated: (result: { done?: string; error?: string }) => void;
 }) {
   const sizeGuess = suggestion?.packSizeText ? parsePackagingText(suggestion.packSizeText) : null;
+  const likely = candidates.find((c) => c.likelyMatch);
+  const [linkTo, setLinkTo] = useState(likely?.inventoryProductId ?? "");
   const [form, setForm] = useState({
-    name: suggestion?.name ?? "", brand: suggestion?.brand ?? "", category: suggestion?.category ?? "",
+    name: suggestion?.name ?? likely?.name ?? "", brand: suggestion?.brand ?? "", category: suggestion?.category ?? "",
     packSize: sizeGuess?.packSize ? String(sizeGuess.packSize) : "", packUnit: (sizeGuess?.packUnit ?? "") as InventoryUnit | "",
     mrp: "", productType: "BOTH" as ProductType,
   });
@@ -419,7 +503,14 @@ function NewProductForm({
           imageUrls: photos,
         }),
       });
-      onCreated(product);
+      const chosen = candidates.find((c) => c.inventoryProductId === linkTo);
+      if (!chosen) return onCreated({});
+      try {
+        await linkBarcode(salonId, chosen.inventoryProductId, product.id);
+        onCreated({ done: linkedText(chosen.name) });
+      } catch (err) {
+        onCreated({ error: errorText(err, `The product was saved, but the barcode wasn't linked to "${chosen.name}" — link it below.`) });
+      }
     } catch (err) {
       setError(errorText(err, "The product was not saved — try again."));
     } finally {
@@ -452,6 +543,26 @@ function NewProductForm({
           {files.length > 0 && <Btn variant="quiet" onClick={() => void readPhotos()} disabled={reading}>{reading ? "Reading…" : "Read text from photos"}</Btn>}
         </div>
         {readNote && <p className={ui.hint} role="status">{readNote}</p>}
+        {candidates.length > 0 && (
+          <div className={`${ui.rowWrap} ${ui.mt12}`}>
+            <Field label="Already in your Products?" htmlFor="new-link">
+              <select
+                id="new-link"
+                className={ui.input}
+                value={linkTo}
+                onChange={(e) => {
+                  setLinkTo(e.target.value);
+                  const chosen = candidates.find((c) => c.inventoryProductId === e.target.value);
+                  if (chosen && !form.name.trim()) set({ name: chosen.name });
+                }}
+              >
+                <option value="">No — this is a new product for us</option>
+                {candidates.map((c) => <option key={c.inventoryProductId} value={c.inventoryProductId}>{candidateLabel(c)}</option>)}
+              </select>
+            </Field>
+          </div>
+        )}
+        {linkTo && <p className={ui.hint}>Saving links this barcode to your existing product, so its stock and history stay together.</p>}
         <div className={`${ui.rowWrap} ${ui.mt12}`}>
           <Field label="Product name" htmlFor="new-name">
             <input id="new-name" className={ui.input} maxLength={160} value={form.name} onChange={(e) => set({ name: e.target.value })} />

@@ -8,11 +8,14 @@ import {
   normalizeBarcode,
   ProductDataSource,
   ProductVerificationStatus,
+  skuMatchesBarcode,
+  type CatalogLinkCandidateDto,
   type CatalogLookupQuery,
   type CatalogLookupResultDto,
   type CatalogProductDto,
   type InventoryMovementDto,
   type InventoryProductDto,
+  type LinkCatalogProductInput,
   type ReceiveCatalogStockInput,
   type SubmitCatalogProductInput,
   type TransferStockInput,
@@ -105,6 +108,7 @@ export class ProductCatalogService {
       product: null,
       suggestion: null,
       salonStock: [],
+      linkCandidates: await this.linkCandidates(salonId, barcode),
     };
 
     const row = await this.prisma.globalProductBarcode.findUnique({
@@ -154,6 +158,116 @@ export class ProductCatalogService {
     return suggestion
       ? { ...base, status: 'EXTERNAL', suggestion }
       : { ...base, status: 'NOT_FOUND' };
+  }
+
+  /** Active salon products with no barcode link yet; a likely SKU match is listed first. */
+  private async linkCandidates(
+    salonId: string,
+    barcode: { code: string; display: string },
+  ): Promise<CatalogLinkCandidateDto[]> {
+    const rows = await this.prisma.inventoryProduct.findMany({
+      where: { salonId, isActive: true, globalProductId: null },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        usage: true,
+        stockOnHand: true,
+        unit: true,
+      },
+      orderBy: { normalizedName: 'asc' },
+      take: 200,
+    });
+    return rows
+      .map((p) => ({
+        inventoryProductId: p.id,
+        name: p.name,
+        sku: p.sku,
+        usage: p.usage,
+        stockOnHand: p.stockOnHand.toFixed(3),
+        unit: p.unit,
+        likelyMatch: skuMatchesBarcode(p.sku, barcode),
+      }))
+      .sort((a, b) => Number(b.likelyMatch) - Number(a.likelyMatch));
+  }
+
+  /**
+   * Attach a catalog product (its barcode) to a product the salon already keeps — typically one
+   * added by hand before barcodes were used — so scans find it instead of creating a duplicate.
+   * The salon's name, stock, costs and history are untouched. Repeating the same link is a no-op.
+   */
+  async link(
+    userId: string,
+    salonId: string,
+    productId: string,
+    input: LinkCatalogProductInput,
+  ): Promise<InventoryProductDto> {
+    await this.salonAccess.assertOwnerOrAdminAccess(userId, salonId);
+    const catalog = await this.prisma.globalProduct.findUnique({
+      where: { id: input.globalProductId },
+      select: { id: true, verificationStatus: true },
+    });
+    if (
+      !catalog ||
+      catalog.verificationStatus === ProductVerificationStatus.REJECTED
+    )
+      throw new AppException(
+        CatalogErrorCode.NOT_USABLE,
+        'This catalog product is not available.',
+        HttpStatus.NOT_FOUND,
+      );
+    const product = await this.prisma.inventoryProduct.findFirst({
+      where: { id: productId, salonId },
+      select: { id: true, isActive: true, globalProductId: true },
+    });
+    if (!product || !product.isActive)
+      throw new AppException(
+        InventoryErrorCode.PRODUCT_NOT_FOUND,
+        'That product was not found in your active products.',
+        HttpStatus.NOT_FOUND,
+      );
+    if (product.globalProductId === catalog.id)
+      return this.inventory.getProduct(salonId, productId);
+    if (product.globalProductId)
+      throw new AppException(
+        CatalogErrorCode.ALREADY_LINKED,
+        'That product already has a barcode.',
+        HttpStatus.CONFLICT,
+      );
+    try {
+      // Only link while it is still unlinked (another device may have linked it a moment ago).
+      const { count } = await this.prisma.inventoryProduct.updateMany({
+        where: { id: productId, salonId, globalProductId: null },
+        data: { globalProductId: catalog.id },
+      });
+      if (count === 0)
+        throw new AppException(
+          CatalogErrorCode.ALREADY_LINKED,
+          'That product already has a barcode.',
+          HttpStatus.CONFLICT,
+        );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      )
+        throw new AppException(
+          CatalogErrorCode.LINK_CONFLICT,
+          'Another of your products already uses this barcode on the same shelf.',
+          HttpStatus.CONFLICT,
+        );
+      throw error;
+    }
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: userId,
+        action: 'INVENTORY_PRODUCT_LINKED',
+        entityType: 'InventoryProduct',
+        entityId: productId,
+        metadata: { salonId, globalProductId: catalog.id },
+      },
+    });
+    return this.inventory.getProduct(salonId, productId);
   }
 
   /** A product the scan didn't find, submitted by a salon — PENDING until a FastQue admin verifies it. */

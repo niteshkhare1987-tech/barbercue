@@ -4,6 +4,7 @@ import {
   normalizeBarcode,
   parseCsv,
   receiveCatalogStockSchema,
+  skuMatchesBarcode,
   submitCatalogProductSchema,
   validateCatalogCsv,
 } from "../product-catalog";
@@ -40,6 +41,18 @@ describe("barcodes", () => {
     expect(expandUpcE("01234565")).toBe("012345000065");
     expect(normalizeBarcode("01234565", "UPC_E")).toMatchObject({ ok: true, code: "00012345000065" });
     expect(normalizeBarcode("91234565", "UPC_E")).toMatchObject({ ok: false });
+  });
+});
+
+describe("matching a hand-typed product code to a barcode", () => {
+  const upc = { code: "00078742040370", display: "078742040370" };
+  it("spots the big printed digits typed without the small end digits, or the whole code", () => {
+    expect(skuMatchesBarcode("7874204037", upc)).toBe(true);
+    expect(skuMatchesBarcode("078742040370", upc)).toBe(true);
+    expect(skuMatchesBarcode("0007 8742 040370", upc)).toBe(true); // the 14-digit form, spaced
+    expect(skuMatchesBarcode("40370", upc)).toBe(false); // too short to be meaningful
+    expect(skuMatchesBarcode("G-1", upc)).toBe(false);
+    expect(skuMatchesBarcode(null, upc)).toBe(false);
   });
 });
 

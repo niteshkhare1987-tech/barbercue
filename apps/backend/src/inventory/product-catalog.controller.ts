@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
@@ -22,11 +23,13 @@ import {
   Role,
   SALON_PHOTO_UPLOAD,
   catalogLookupQuerySchema,
+  linkCatalogProductSchema,
   receiveCatalogStockSchema,
   submitCatalogProductSchema,
   transferStockSchema,
   type AuthenticatedUser,
   type CatalogLookupQuery,
+  type LinkCatalogProductInput,
   type ReceiveCatalogStockInput,
   type SubmitCatalogProductInput,
   type TransferStockInput,
@@ -128,6 +131,20 @@ export class ProductCatalogController {
     );
     response.status(result.created ? HttpStatus.CREATED : HttpStatus.OK);
     return result;
+  }
+
+  @Post(
+    `${ROOT}/${INVENTORY_PATHS.products}/:productId/${CATALOG_PATHS.linkCatalog}`,
+  )
+  @HttpCode(HttpStatus.OK)
+  link(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('salonId', ParseUUIDPipe) salonId: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Body(new ZodValidationPipe(linkCatalogProductSchema))
+    body: LinkCatalogProductInput,
+  ) {
+    return this.catalog.link(user.id, salonId, productId, body);
   }
 
   @Post(

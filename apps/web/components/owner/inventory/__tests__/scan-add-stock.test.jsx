@@ -172,10 +172,13 @@ describe('Scan / Add stock', () => {
   });
 
   it('an unknown barcode opens the new-product form, which saves it for this salon', async () => {
+    let lookups = 0;
     apiFetch.mockImplementation((path) =>
       Promise.resolve(
         path.includes('/lookup')
-          ? { ...found, status: 'NOT_FOUND', product: null, salonStock: [] }
+          ? lookups++ === 0
+            ? { ...found, status: 'NOT_FOUND', product: null, salonStock: [] }
+            : { ...found, status: 'FOUND_PENDING', salonStock: [], product: { ...found.product, id: 'gp-new', name: 'QA Wax', verificationStatus: 'PENDING' } }
           : { ...found.product, id: 'gp-new', name: 'QA Wax', verificationStatus: 'PENDING' },
       ),
     );
@@ -190,6 +193,81 @@ describe('Scan / Add stock', () => {
     expect(path).toBe('dashboard/salons/s1/inventory/catalog/products');
     expect(JSON.parse(options.body)).toMatchObject({ barcode: '5901234123457', name: 'QA Wax', mrp: 249, dataSource: 'SALON_SUBMITTED' });
     expect(textOf(tree.root)).toContain('Waiting for FastQue review');
+  });
+});
+
+describe('linking a barcode to a product added by hand', () => {
+  const water = { inventoryProductId: 'inv-water', name: 'water', sku: '7874204037', usage: 'PROFESSIONAL', stockOnHand: '0.000', unit: 'LITER', likelyMatch: true };
+  const gel = { inventoryProductId: 'inv-gel', name: 'Gel', sku: null, usage: 'PROFESSIONAL', stockOnHand: '2.000', unit: 'EACH', likelyMatch: false };
+  const notFound = { barcode: { code: '00078742040370', display: '078742040370', format: 'GTIN' }, status: 'NOT_FOUND', pendingProductId: null, product: null, suggestion: null, salonStock: [], linkCandidates: [water, gel] };
+  const pendingProduct = { id: 'gp-water', name: 'water', brand: 'walmart', packSize: null, packUnit: null, mrp: '20.00', verificationStatus: 'PENDING', barcodes: [{ display: '078742040370' }], imageUrls: [] };
+
+  beforeEach(() => {
+    apiFetch.mockReset();
+    globalThis.window = { addEventListener: jest.fn(), removeEventListener: jest.fn() };
+    globalThis.navigator = {};
+    globalThis.requestAnimationFrame = (fn) => fn();
+  });
+  afterEach(() => {
+    delete globalThis.window;
+    delete globalThis.navigator;
+  });
+
+  async function scanCode(tree, code) {
+    act(() => tree.root.find((n) => n.type === 'input' && n.props.inputMode === 'numeric').props.onChange({ target: { value: code } }));
+    await act(async () => tree.root.findByType('form').props.onSubmit({ preventDefault() {} }));
+  }
+
+  it('the new-product form preselects the product whose code looks like the barcode, and saving links it', async () => {
+    let lookups = 0;
+    apiFetch.mockImplementation((path) => {
+      if (path.includes('/lookup'))
+        return Promise.resolve(lookups++ === 0 ? notFound : { ...notFound, status: 'FOUND_PENDING', product: pendingProduct, salonStock: [{ inventoryProductId: 'inv-water', usage: 'PROFESSIONAL', stockOnHand: '0.000', unit: 'LITER' }], linkCandidates: [gel] });
+      if (path.endsWith('/catalog/products')) return Promise.resolve(pendingProduct);
+      return Promise.resolve({});
+    });
+    let tree;
+    await act(async () => { tree = TestRenderer.create(<ScanAddStock salonId="s1" />); });
+    await scanCode(tree, '078742040370');
+    expect(inputById(tree, 'new-link').props.value).toBe('inv-water');
+    expect(inputById(tree, 'new-name').props.value).toBe('water');
+    expect(textOf(tree.root)).toContain('looks like this barcode');
+    await act(async () => byText(tree, 'button', 'Save product').props.onClick());
+    const link = apiFetch.mock.calls.find(([path]) => path.endsWith('/link-catalog'));
+    expect(link[0]).toBe('dashboard/salons/s1/inventory/products/inv-water/link-catalog');
+    expect(JSON.parse(link[1].body)).toEqual({ globalProductId: 'gp-water' });
+    expect(textOf(tree.root)).toContain('Barcode linked to "water"');
+    expect(textOf(tree.root)).toContain('Used on services: 0 L');
+  });
+
+  it('choosing "new product" saves without linking', async () => {
+    apiFetch.mockImplementation((path) => Promise.resolve(path.includes('/lookup') ? notFound : pendingProduct));
+    let tree;
+    await act(async () => { tree = TestRenderer.create(<ScanAddStock salonId="s1" />); });
+    await scanCode(tree, '078742040370');
+    act(() => inputById(tree, 'new-link').props.onChange({ target: { value: '' } }));
+    await act(async () => byText(tree, 'button', 'Save product').props.onClick());
+    expect(apiFetch.mock.calls.some(([path]) => path.endsWith('/link-catalog'))).toBe(false);
+  });
+
+  it('a barcode already in the catalog can be linked when this salon has no stock of it yet', async () => {
+    let lookups = 0;
+    apiFetch.mockImplementation((path) =>
+      Promise.resolve(
+        path.includes('/lookup')
+          ? lookups++ === 0
+            ? { ...notFound, status: 'FOUND', product: { ...pendingProduct, verificationStatus: 'VERIFIED' } }
+            : { ...notFound, status: 'FOUND', product: { ...pendingProduct, verificationStatus: 'VERIFIED' }, salonStock: [{ inventoryProductId: 'inv-water', usage: 'PROFESSIONAL', stockOnHand: '0.000', unit: 'LITER' }], linkCandidates: [gel] }
+          : {},
+      ),
+    );
+    let tree;
+    await act(async () => { tree = TestRenderer.create(<ScanAddStock salonId="s1" />); });
+    await scanCode(tree, '078742040370');
+    expect(textOf(tree.root)).toContain('Already in your Products?');
+    await act(async () => byText(tree, 'button', 'Link barcode').props.onClick());
+    expect(apiFetch.mock.calls.some(([path]) => path === 'dashboard/salons/s1/inventory/products/inv-water/link-catalog')).toBe(true);
+    expect(textOf(tree.root)).not.toContain('Already in your Products?');
   });
 });
 

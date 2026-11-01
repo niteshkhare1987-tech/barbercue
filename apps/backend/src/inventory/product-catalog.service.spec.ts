@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { CatalogErrorCode } from '@barbercue/shared';
 import { overviewRange } from './admin-inventory.service';
 import { ProductCatalogService } from './product-catalog.service';
@@ -37,8 +38,10 @@ function make(
     found?: ReturnType<typeof product> | null;
     external?: unknown;
     earlier?: { productId: string; kind: string } | null;
-    existingInventory?: { id: string } | null;
+    existingInventory?: Record<string, unknown> | null;
     priorMovements?: number;
+    candidates?: Record<string, unknown>[];
+    updateMany?: jest.Mock;
   } = {},
 ) {
   const prisma = {
@@ -57,7 +60,8 @@ function make(
       findUnique: jest.fn().mockResolvedValue(opts.found ?? null),
     },
     inventoryProduct: {
-      findMany: jest.fn().mockResolvedValue([]),
+      findMany: jest.fn().mockResolvedValue(opts.candidates ?? []),
+      updateMany: opts.updateMany ?? jest.fn().mockResolvedValue({ count: 1 }),
       findFirst: jest.fn().mockResolvedValue(opts.existingInventory ?? null),
       create: jest.fn().mockResolvedValue({ id: 'inv-new' }),
       update: jest.fn(),
@@ -240,5 +244,97 @@ describe('admin overview date range', () => {
     expect(() =>
       overviewRange({ from: '2026-10-31', to: '2026-10-01' }),
     ).toThrow();
+  });
+});
+
+describe('linking a scanned barcode to an existing product', () => {
+  const unlinked = { id: 'inv-old', isActive: true, globalProductId: null };
+
+  it('lookup lists unlinked products, the one whose SKU is part of the barcode first', async () => {
+    const stock = (id: string, sku: string | null) => ({
+      id,
+      name: id,
+      sku,
+      usage: 'PROFESSIONAL',
+      stockOnHand: new Prisma.Decimal(0),
+      unit: 'EACH',
+    });
+    const { service } = make({
+      found: null,
+      candidates: [stock('gel', 'G-1'), stock('water', '7874204037')],
+    });
+    const result = await service.lookup('u', SALON, {
+      barcode: '078742040370',
+    });
+    expect(result.status).toBe('NOT_FOUND');
+    expect(result.linkCandidates.map((c) => [c.name, c.likelyMatch])).toEqual([
+      ['water', true],
+      ['gel', false],
+    ]);
+  });
+
+  it('links an unlinked product once, recording who did it', async () => {
+    const { service, prisma, inventory } = make({
+      found: product(),
+      existingInventory: unlinked,
+    });
+    await service.link('u', SALON, 'inv-old', { globalProductId: 'gp-1' });
+    expect(prisma.inventoryProduct.updateMany).toHaveBeenCalledWith({
+      where: { id: 'inv-old', salonId: SALON, globalProductId: null },
+      data: { globalProductId: 'gp-1' },
+    });
+    expect(prisma.auditLog.create.mock.calls[0][0].data.action).toBe(
+      'INVENTORY_PRODUCT_LINKED',
+    );
+    expect(inventory.getProduct).toHaveBeenCalledWith(SALON, 'inv-old');
+  });
+
+  it('repeating the same link changes nothing; a different existing link is refused', async () => {
+    const same = make({
+      found: product(),
+      existingInventory: { ...unlinked, globalProductId: 'gp-1' },
+    });
+    await same.service.link('u', SALON, 'inv-old', { globalProductId: 'gp-1' });
+    expect(same.prisma.inventoryProduct.updateMany).not.toHaveBeenCalled();
+
+    const other = make({
+      found: product(),
+      existingInventory: { ...unlinked, globalProductId: 'gp-other' },
+    });
+    await expect(
+      other.service.link('u', SALON, 'inv-old', { globalProductId: 'gp-1' }),
+    ).rejects.toMatchObject({ code: CatalogErrorCode.ALREADY_LINKED });
+  });
+
+  it('refuses archived products, rejected barcodes and a second product on the same shelf', async () => {
+    const archived = make({
+      found: product(),
+      existingInventory: { ...unlinked, isActive: false },
+    });
+    await expect(
+      archived.service.link('u', SALON, 'inv-old', { globalProductId: 'gp-1' }),
+    ).rejects.toMatchObject({ code: 'INVENTORY_PRODUCT_NOT_FOUND' });
+
+    const rejected = make({
+      found: product({ verificationStatus: 'REJECTED' }),
+      existingInventory: unlinked,
+    });
+    await expect(
+      rejected.service.link('u', SALON, 'inv-old', { globalProductId: 'gp-1' }),
+    ).rejects.toMatchObject({ code: CatalogErrorCode.NOT_USABLE });
+
+    const clash = make({
+      found: product(),
+      existingInventory: unlinked,
+      updateMany: jest.fn().mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      ),
+    });
+    await expect(
+      clash.service.link('u', SALON, 'inv-old', { globalProductId: 'gp-1' }),
+    ).rejects.toMatchObject({ code: CatalogErrorCode.LINK_CONFLICT });
   });
 });

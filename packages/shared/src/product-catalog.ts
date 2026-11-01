@@ -13,6 +13,8 @@ export const CATALOG_PATHS = {
   products: "products",
   receive: "receive",
   transfer: "transfer",
+  /** POST …/inventory/products/:productId/link-catalog — attach a barcode to a product the salon already has. */
+  linkCatalog: "link-catalog",
   /** Admin routes, under admin/. */
   adminCatalog: "inventory-catalog",
   adminImportPreview: "import/preview",
@@ -64,6 +66,8 @@ export const CatalogErrorCode = {
   NOT_USABLE: "CATALOG_PRODUCT_NOT_USABLE",
   IMPORT_INVALID: "CATALOG_IMPORT_INVALID",
   FORBIDDEN: "CATALOG_FORBIDDEN",
+  ALREADY_LINKED: "CATALOG_PRODUCT_ALREADY_LINKED",
+  LINK_CONFLICT: "CATALOG_LINK_CONFLICT",
 } as const;
 
 // ---------- Barcodes ----------
@@ -212,6 +216,14 @@ export const transferStockSchema = z
   })
   .strict();
 export type TransferStockInput = z.infer<typeof transferStockSchema>;
+
+/** Attach a catalog product (its barcode) to one of the salon's existing products. */
+export const linkCatalogProductSchema = z
+  .object({
+    globalProductId: z.string().uuid(),
+  })
+  .strict();
+export type LinkCatalogProductInput = z.infer<typeof linkCatalogProductSchema>;
 
 export const adminCatalogListQuerySchema = z
   .object({
@@ -462,6 +474,11 @@ export interface CatalogLookupResultDto {
   suggestion: ExternalProductSuggestionDto | null;
   /** This salon's own stock of the product, per shelf. */
   salonStock: { inventoryProductId: string; usage: StockUsage; stockOnHand: string; unit: InventoryUnit }[];
+  /**
+   * The salon's active products not linked to any barcode yet, so a scan can be attached to a
+   * product added earlier by hand. `likelyMatch` marks one whose SKU looks like part of this barcode.
+   */
+  linkCandidates: CatalogLinkCandidateDto[];
 }
 
 export interface AdminInventoryOverviewDto {
@@ -492,4 +509,25 @@ export interface AdminInventoryOverviewDto {
     lastStockUpdate: string | null;
   }>;
   topProducts: Array<{ globalProductId: string; name: string; brand: string | null; salons: number }>;
+}
+
+export interface CatalogLinkCandidateDto {
+  inventoryProductId: string;
+  name: string;
+  sku: string | null;
+  usage: StockUsage;
+  stockOnHand: string;
+  unit: InventoryUnit;
+  likelyMatch: boolean;
+}
+
+/**
+ * True when a salon product's SKU looks like this barcode or a piece of it — typically the big
+ * printed digits typed without the small ones at each end (SKU 7874204037 vs UPC 078742040370).
+ */
+export function skuMatchesBarcode(sku: string | null | undefined, barcode: { code: string; display: string }): boolean {
+  const digits = (sku ?? "").replace(/[\s-]/g, "");
+  if (!digits) return false;
+  if (digits.toUpperCase() === barcode.code || digits === barcode.display) return true;
+  return /^\d{6,}$/.test(digits) && barcode.display.includes(digits);
 }

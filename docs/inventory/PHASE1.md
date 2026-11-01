@@ -39,6 +39,12 @@ catalog product + shelf and records the stock through the existing ledger: openi
 time (no supplier), a purchase after that. An `Idempotency-Key` is required; a retry returns the
 original entry.
 
+**Products added by hand.** Lookups also return the salon's active products that have no barcode
+yet (`linkCandidates`); one whose SKU is the barcode or the big printed digits of it (e.g. SKU
+`7874204037` for UPC `078742040370`) is marked `likelyMatch` and preselected. Saving a new product
+or pressing "Link barcode" attaches the barcode to that product, so scans find it and its stock and
+history stay on one row instead of a duplicate.
+
 **Shelf transfers** lock both products in id order and write TRANSFER_OUT / TRANSFER_IN with one
 `transferGroupId`; the incoming side carries the source's average cost.
 
@@ -53,6 +59,7 @@ Salon routes (owner or platform admin, `dashboard/salons/:salonId/inventory/…`
 | `POST catalog/images` (multipart `image`) | Packaging photo (JPEG/PNG/WebP, 5 MB) → `{ url }` |
 | `POST receive` (`Idempotency-Key`) | Receive stock of a catalog product |
 | `POST products/:productId/transfer` (`Idempotency-Key`) | Move stock to the other shelf |
+| `POST products/:productId/link-catalog` `{ globalProductId }` | Attach a barcode to a product the salon added by hand earlier (only while it has none; same link again is a no-op) |
 | `POST products/:productId/movements` | Existing; now also RETURN / DAMAGE / EXPIRY / WASTAGE, batch + expiry on OPENING / PURCHASE |
 
 Admin routes (`admin/…`; view = platform admin, co-founder, viewer; change = platform admin, co-founder):
