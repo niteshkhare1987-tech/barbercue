@@ -67,6 +67,15 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
     navigator.vibrate?.(60);
   }, []);
 
+  const stop = useCallback(() => {
+    controlsRef.current?.stop();
+    controlsRef.current = null;
+    const stream = videoRef.current?.srcObject as MediaStream | null;
+    stream?.getTracks().forEach((track) => track.stop());
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setPhase("idle");
+  }, []);
+
   /** One place every input (camera, photo, USB scanner, typing) goes through. */
   const handle = useCallback(
     (raw: string, hint: Hint, fromCamera: boolean) => {
@@ -83,19 +92,12 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
       }
       setError(null);
       setFlash(scanned.code);
+      // One product at a time: stop so holding the pack in view doesn't keep re-reading it.
+      if (fromCamera) stop();
       onDetected(scanned.code, hint);
     },
-    [confirmRead, onDetected],
+    [confirmRead, onDetected, stop],
   );
-
-  const stop = useCallback(() => {
-    controlsRef.current?.stop();
-    controlsRef.current = null;
-    const stream = videoRef.current?.srcObject as MediaStream | null;
-    stream?.getTracks().forEach((track) => track.stop());
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setPhase("idle");
-  }, []);
 
   const start = useCallback(
     async (index: number | null) => {
@@ -199,7 +201,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
           </>
         ) : (
           <Btn variant="primary" onClick={() => void start(deviceIndex)} disabled={phase === "starting"}>
-            {phase === "starting" ? "Starting…" : "Scan with camera"}
+            {phase === "starting" ? "Starting…" : flash ? "Scan another" : "Scan with camera"}
           </Btn>
         )}
         <label className={styles.photoButton}>
