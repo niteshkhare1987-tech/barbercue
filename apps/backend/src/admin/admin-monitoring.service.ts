@@ -25,7 +25,7 @@ function maskEmail(value: string | null): string | null {
   return `${visible}***@${domain}`;
 }
 
-function maskPhone(value: string | null): string | null {
+export function maskPhone(value: string | null): string | null {
   if (!value) return value;
   const digits = value.replace(/\D/g, '');
   if (digits.length <= 4) return '****';

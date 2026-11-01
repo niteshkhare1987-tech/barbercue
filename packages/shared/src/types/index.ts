@@ -1967,6 +1967,33 @@ export interface AdminExecutiveOverviewDto {
   }>;
   shopsTotal: number; // before the row limit
   shopsLimit: number;
+  // All time, independent of from/to. A customer is their account, else their phone number;
+  // completed visits with neither cannot be told apart and are counted separately.
+  customersServed: {
+    unique: number;
+    unidentifiedVisits: number;
+  };
+}
+
+// GET admin/analytics/customers-served — one row per unique served customer, all time.
+// Phones are masked: the executive audience includes the read-only viewer.
+export interface AdminServedCustomersDto {
+  generatedAt: string;
+  timeZone: string;
+  total: number; // before the row limit
+  limit: number;
+  unidentifiedVisits: number;
+  customers: Array<{
+    type: "REGISTERED" | "GUEST";
+    maskedPhone: string | null;
+    firstServedOn: string; // IST date
+    lastServedOn: string; // IST date
+    completedVisits: number;
+    appointmentsCompleted: number;
+    walkInsServed: number;
+    salonsVisited: number;
+    lastSalon: string;
+  }>;
 }
 
 export interface PlatformAdminOverviewDto {

@@ -1,4 +1,4 @@
-import type { AdminAdoptionCategory, AdminExecutiveOverviewDto, AdminKpiValue } from "@barbercue/shared";
+import type { AdminAdoptionCategory, AdminExecutiveOverviewDto, AdminKpiValue, AdminServedCustomersDto } from "@barbercue/shared";
 
 export const ADOPTION_LABELS: Record<AdminAdoptionCategory, string> = {
   HIGHLY_ACTIVE: "Highly active",
@@ -74,5 +74,22 @@ export function shopsCsv(data: AdminExecutiveOverviewDto): string {
     s.walkInsServed, s.cancelled, s.noShow, (s.serviceValuePaise / 100).toFixed(2), s.registeredAt,
   ]);
   const meta = [`Period ${data.from} to ${data.to} (${data.timeZone}); generated ${data.generatedAt}`];
+  return [meta, header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
+}
+
+export function servedCustomersCsv(data: AdminServedCustomersDto): string {
+  const header = [
+    "Customer type", "Phone (masked)", "First served", "Last served", "Completed visits",
+    "Completed appointments", "Walk-ins served", "Salons visited", "Last salon",
+  ];
+  const rows = data.customers.map((c) => [
+    c.type === "REGISTERED" ? "Registered" : "Guest", c.maskedPhone ?? "", c.firstServedOn, c.lastServedOn,
+    c.completedVisits, c.appointmentsCompleted, c.walkInsServed, c.salonsVisited, c.lastSalon,
+  ]);
+  const meta = [
+    `All unique customers served to date (${data.timeZone}); generated ${data.generatedAt}; ${data.total} customers` +
+      (data.total > data.customers.length ? `, first ${data.customers.length} shown` : "") +
+      `; ${data.unidentifiedVisits} visits without a phone or account not included`,
+  ];
   return [meta, header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
 }

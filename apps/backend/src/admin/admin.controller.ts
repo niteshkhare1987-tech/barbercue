@@ -121,6 +121,15 @@ export class AdminController {
     return this.executive.getOverview(query);
   }
 
+  // All-time unique served customers for the command-center download. Same audience as the
+  // overview, so phones are always masked.
+  @Get(`${ADMIN_PATHS.analytics}/${ADMIN_PATHS.customersServed}`)
+  @Roles(Role.PLATFORM_ADMIN, Role.CO_FOUNDER, Role.PLATFORM_VIEWER)
+  @Header('Cache-Control', 'private, no-store')
+  servedCustomers() {
+    return this.executive.getServedCustomers();
+  }
+
   @Get(ADMIN_PATHS.verification)
   @Roles(Role.PLATFORM_ADMIN, Role.CO_FOUNDER)
   listVerification(

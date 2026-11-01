@@ -62,6 +62,13 @@
 .kpiChange[data-direction="none"], .kpiChange[data-direction="flat"] { color: #a7a7b4; }
 .kpiVs { color: #a7a7b4; }
 .kpiNote { margin: 6px 0 0; color: #a7a7b4; font-size: var(--bc-text-xs); }
+.kpiAction {
+  margin-top: 10px; padding: 5px 10px; border: 1px solid #3a3a46; border-radius: var(--bc-radius-sm, 6px);
+  background: transparent; color: #e8e8ef; font: inherit; font-size: var(--bc-text-xs); font-weight: 600; cursor: pointer;
+}
+.kpiAction:hover:not(:disabled) { border-color: #ff6f6f; }
+.kpiAction:focus-visible { outline: 2px solid #ff8448; outline-offset: 2px; }
+.kpiAction:disabled { opacity: .6; cursor: progress; }
 .kpiUnavailable { border-style: dashed; }
 .kpiUnavailable strong { font-size: 1.15rem; color: #c9c9d3; }
 

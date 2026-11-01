@@ -77,6 +77,8 @@ export const ADMIN_PATHS = {
   shopActivity: 'shop-activity',
   // admin/analytics/overview?from&to — Executive Command Center (docs/admin-dashboard-2.0).
   analytics: 'analytics',
+  // admin/analytics/customers-served — all-time unique served customers, for the CSV download.
+  customersServed: 'customers-served',
   // Phase 18 — admin/verification[/:id[/start-review|/decide]], the PLATFORM_ADMIN review queue.
   verification: 'verification',
   startReview: 'start-review',
