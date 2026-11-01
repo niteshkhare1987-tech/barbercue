@@ -54,8 +54,18 @@ function dayString(date: Date, timeZone: string): string {
   }).format(date);
 }
 
+const UNIT_SHORT: Record<InventoryUnit, string> = {
+  EACH: 'pcs',
+  GRAM: 'g',
+  KILOGRAM: 'kg',
+  MILLILITER: 'ml',
+  LITER: 'L',
+  PACK: 'packs',
+  BOX: 'boxes',
+  OTHER: 'units',
+};
 const q = (n: number, unit: InventoryUnit) =>
-  `${Number(n.toFixed(3))} ${unit === 'EACH' ? 'pcs' : unit.toLowerCase()}`;
+  `${Number(n.toFixed(3))} ${UNIT_SHORT[unit]}`;
 
 type DesiredAlert = {
   kind: 'REORDER' | 'STOCK_OUT' | 'EXPIRING' | 'EXPIRED';
