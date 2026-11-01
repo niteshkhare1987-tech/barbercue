@@ -35,6 +35,8 @@ type Controls = { stop: () => void };
 export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string, hint: Hint) => void; busy: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<Controls | null>(null);
+  /** Bumped on every start/stop, so a camera that finishes starting after a stop is shut again. */
+  const sessionRef = useRef(0);
   const lastRef = useRef<{ code: string; at: number } | null>(null);
   const busyRef = useRef(busy);
   const [phase, setPhase] = useState<"idle" | "starting" | "live" | "error">("idle");
@@ -42,6 +44,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceIndex, setDeviceIndex] = useState<number | null>(null);
   const [manual, setManual] = useState("");
+  const [shortOk, setShortOk] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [tipFor, setTipFor] = useState<string | null>(null);
 
@@ -68,6 +71,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
   }, []);
 
   const stop = useCallback(() => {
+    sessionRef.current += 1;
     controlsRef.current?.stop();
     controlsRef.current = null;
     const stream = videoRef.current?.srcObject as MediaStream | null;
@@ -109,6 +113,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
       }
       setPhase("starting");
       controlsRef.current?.stop();
+      const session = ++sessionRef.current;
       try {
         const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
         const reader = new BrowserMultiFormatReader(scanHints(BarcodeFormat, DecodeHintType), { delayBetweenScanAttempts: 150 });
@@ -116,9 +121,16 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
         const video: MediaTrackConstraints = chosen
           ? { deviceId: { exact: chosen.deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
           : { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } };
-        controlsRef.current = await reader.decodeFromConstraints({ video, audio: false }, videoRef.current!, (result) => {
-          if (result) handle(result.getText(), result.getBarcodeFormat() === BarcodeFormat.UPC_E ? "UPC_E" : undefined, true);
+        const controls = await reader.decodeFromConstraints({ video, audio: false }, videoRef.current!, (result) => {
+          if (result && sessionRef.current === session) handle(result.getText(), result.getBarcodeFormat() === BarcodeFormat.UPC_E ? "UPC_E" : undefined, true);
         });
+        if (sessionRef.current !== session) {
+          // Stopped (e.g. the first frame was already read) while the camera was still starting.
+          controls.stop();
+          stop();
+          return;
+        }
+        controlsRef.current = controls;
         setPhase("live");
         // Continuous autofocus where the camera supports it (many laptop webcams are fixed-focus).
         const [track] = ((videoRef.current?.srcObject as MediaStream | null)?.getVideoTracks() ?? []);
@@ -131,7 +143,7 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
         setError(cameraErrorText(err));
       }
     },
-    [devices, handle],
+    [devices, handle, stop],
   );
 
   // Live for a while with nothing read: most often the barcode is too close for the camera to focus.
@@ -224,6 +236,13 @@ export function BarcodeScanner({ onDetected, busy }: { onDetected: (code: string
         className={`${ui.rowWrap} ${ui.mt12}`}
         onSubmit={(e) => {
           e.preventDefault();
+          // People often type only the big printed digits and miss the small ones at each end.
+          const digits = manual.replace(/[\s-]/g, "");
+          if (/^\d{9,11}$/.test(digits) && shortOk !== digits) {
+            setShortOk(digits);
+            setError(`That's ${digits.length} digits. Pack barcodes are usually 12 or 13 digits — include the small digits printed at each end. Press Look up again to use it as typed.`);
+            return;
+          }
           handle(manual, undefined, false);
         }}
       >

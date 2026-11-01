@@ -76,6 +76,18 @@ describe('BarcodeScanner', () => {
     expect(onDetected).toHaveBeenCalledWith('5901234123457', undefined);
   });
 
+  it('a typed number missing the small end digits is questioned once, then used as typed', () => {
+    const onDetected = jest.fn();
+    let tree;
+    act(() => { tree = TestRenderer.create(<BarcodeScanner onDetected={onDetected} busy={false} />); });
+    act(() => tree.root.find((n) => n.type === 'input' && n.props.inputMode === 'numeric').props.onChange({ target: { value: '7874204037' } }));
+    act(() => tree.root.findByType('form').props.onSubmit({ preventDefault() {} }));
+    expect(onDetected).not.toHaveBeenCalled();
+    expect(textOf(tree.root)).toContain("That's 10 digits");
+    act(() => tree.root.findByType('form').props.onSubmit({ preventDefault() {} }));
+    expect(onDetected).toHaveBeenCalledWith('7874204037', undefined);
+  });
+
   it('a website QR code shows why it was not used instead of looking it up', () => {
     const onDetected = jest.fn();
     let tree;
