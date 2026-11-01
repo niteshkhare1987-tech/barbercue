@@ -95,8 +95,8 @@ describe("InventoryTabs", () => {
     mockPath = "/dashboard/salons/s1/inventory/low-stock";
     const r = await mount(<InventoryTabs salonId="s1" />);
     const links = r.root.findAll((n) => n.type === "a");
-    expect(links).toHaveLength(13);
-    expect(INVENTORY_SECTIONS).toHaveLength(13);
+    expect(links).toHaveLength(14);
+    expect(INVENTORY_SECTIONS).toHaveLength(14);
     expect(links.find((l) => l.props["aria-current"] === "page").props.href).toBe("/dashboard/salons/s1/inventory/low-stock");
     expect(links.filter((l) => l.props["aria-current"]).length).toBe(1);
   });

@@ -1023,6 +1023,8 @@ model Salon {
   globalProductSubmissions GlobalProduct[] @relation("GlobalProductSubmissions")
   serviceProductRules      ServiceProductRule[]
   serviceUsages            ServiceUsage[]
+  inventorySettings        InventorySettings?
+  inventoryAlerts          InventoryAlert[]
   demoWorkspace               OwnerDemoWorkspace?
 
   @@unique([cityId, slug])
@@ -2057,6 +2059,8 @@ model InventorySupplier {
   phone          String?  @db.VarChar(40)
   email          String?  @db.VarChar(254)
   notes          String?  @db.VarChar(500)
+  // Inventory Phase 3: days from ordering to delivery; null = the shop's default lead time.
+  leadTimeDays   Int?
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 
@@ -2101,6 +2105,7 @@ model InventoryProduct {
   movements         InventoryMovement[]
   recipeDefaults    ServiceProductRule[]
   serviceUsageItems ServiceUsageItem[]
+  alerts            InventoryAlert[]
 
   @@unique([id, salonId])
   @@unique([salonId, sku])
@@ -2741,4 +2746,50 @@ model ServiceUsageItem {
   @@unique([usageId, productId])
   @@index([productId])
   @@map("service_usage_items")
+}
+
+// ---------- Inventory Phase 3: predictions and alerts ----------
+
+enum InventoryAlertKind {
+  REORDER
+  STOCK_OUT
+  EXPIRING
+  EXPIRED
+}
+
+/// A shop's forecasting assumptions. No row = the defaults (5 days delivery, 3 days cushion, orders
+/// cover 14 days, alerts on).
+model InventorySettings {
+  salonId        String   @id
+  salon          Salon    @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  leadTimeDays   Int      @default(5)
+  safetyDays     Int      @default(3)
+  coverDays      Int      @default(14)
+  alertsEnabled  Boolean  @default(true)
+  lastAlertRunAt DateTime? @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("inventory_settings")
+}
+
+/// One open stock problem (reorder, stock-out, expiring/expired batch). At most one unresolved alert
+/// per (shop, dedupeKey) — a partial unique index — so the owner is told once per problem, not every
+/// day. It resolves itself when the problem goes away; dismissing only hides it.
+model InventoryAlert {
+  id                String             @id @default(uuid())
+  salonId           String
+  salon             Salon              @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  productId         String?
+  product           InventoryProduct?  @relation(fields: [productId, salonId], references: [id, salonId], onDelete: Restrict)
+  kind              InventoryAlertKind
+  dedupeKey         String             @db.VarChar(160)
+  title             String             @db.VarChar(200)
+  detail            String             @db.VarChar(500)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  resolvedAt        DateTime?          @db.Timestamptz(6)
+  dismissedAt       DateTime?          @db.Timestamptz(6)
+  dismissedByUserId String?
+
+  @@index([salonId, resolvedAt, createdAt])
+  @@map("inventory_alerts")
 }

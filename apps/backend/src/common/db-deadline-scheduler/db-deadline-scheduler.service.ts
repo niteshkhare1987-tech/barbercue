@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 
-export type DbDeadlineDomain = 'booking' | 'queue';
+export type DbDeadlineDomain = 'booking' | 'queue' | 'inventory';
 
 export interface DbDeadlineJob {
   name: string;

@@ -13,6 +13,7 @@ import { Banner, Btn, BtnLink, Card, EmptyState, Field, Skeleton } from "../part
 import { MovementForm } from "./MovementForm";
 import { MovementsTable } from "./MovementsTable";
 import { ListFooter, ListSkeleton, ProductPicker, StockCell } from "./shared";
+import { AnalyticsView, ReorderSummary } from "./ForecastViews";
 import { InventoryDashboard } from "./ServiceUsageViews";
 import ui from "../owner.module.css";
 
@@ -194,6 +195,9 @@ export function OverviewView({ salonId }: { salonId: string }) {
         </div>
       </Card>
       <div className={ui.mt16}>
+        <ReorderSummary salonId={salonId} />
+      </div>
+      <div className={ui.mt16}>
         <InventoryDashboard salonId={salonId} />
       </div>
       <div className={ui.mt16}>
@@ -216,6 +220,9 @@ export function ReportView({ salonId }: { salonId: string }) {
         <ReportCards report={report} />
         <p className={ui.cardSub}>Basis: {report.valuationBasis === "weighted-average-cost" ? "weighted average cost" : String(report.valuationBasis)}{report.currency ? `, in ${report.currency}` : ", currency not set"}.</p>
       </Card>
+      <div className={ui.mt16}>
+        <AnalyticsView salonId={salonId} />
+      </div>
       <div className={ui.mt16}>
         <Card title="Entries recorded">
           <div className={ui.tableWrap}>

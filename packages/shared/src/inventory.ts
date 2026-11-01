@@ -92,6 +92,8 @@ export const createInventorySupplierSchema = z
     phone: z.string().trim().max(40).optional().nullable(),
     email: z.string().trim().email().max(254).optional().nullable(),
     notes: z.string().trim().max(500).optional().nullable(),
+    // Inventory Phase 3: days from ordering to delivery (null = the shop's default).
+    leadTimeDays: z.number().int().min(0).max(90).optional().nullable(),
   })
   .strict();
 export type CreateInventorySupplierInput = z.infer<
@@ -278,6 +280,7 @@ export interface InventorySupplierDto {
   phone: string | null;
   email: string | null;
   notes: string | null;
+  leadTimeDays?: number | null;
   createdAt: string;
 }
 

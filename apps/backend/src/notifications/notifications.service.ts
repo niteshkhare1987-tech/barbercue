@@ -35,6 +35,9 @@ const TYPE_CATEGORY: Record<NotificationType, NotificationCategory> = {
   'owner.booking.arrival_check': NotificationCategory.BOOKING_UPDATES,
   'booking.cancelled_by_shop': NotificationCategory.BOOKING_UPDATES,
   'booking.rescheduled_by_shop': NotificationCategory.BOOKING_UPDATES,
+  // Inventory Phase 3 — stock reminders for the owner (no inventory category exists yet).
+  'owner.inventory.reorder': NotificationCategory.REMINDERS,
+  'owner.inventory.expiring': NotificationCategory.REMINDERS,
 };
 
 const ALL_CATEGORIES: NotificationCategory[] = [

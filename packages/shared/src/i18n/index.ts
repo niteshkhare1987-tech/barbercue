@@ -2578,6 +2578,8 @@ const enNotificationTypeLabels: NotificationTypeLabels = {
   'owner.booking.arrival_check': 'Appointment arrival check',
   'booking.cancelled_by_shop': 'Appointment cancelled by the shop',
   'booking.rescheduled_by_shop': 'Appointment time changed by the shop',
+  'owner.inventory.reorder': 'Time to reorder stock',
+  'owner.inventory.expiring': 'Stock expiring soon',
 };
 
 const hiNotificationTypeLabels: NotificationTypeLabels = {
@@ -2598,6 +2600,8 @@ const hiNotificationTypeLabels: NotificationTypeLabels = {
   'owner.booking.arrival_check': 'अपॉइंटमेंट आगमन जांच',
   'booking.cancelled_by_shop': 'दुकान ने अपॉइंटमेंट रद्द की',
   'booking.rescheduled_by_shop': 'दुकान ने अपॉइंटमेंट का समय बदला',
+  'owner.inventory.reorder': 'स्टॉक फिर से मंगाने का समय',
+  'owner.inventory.expiring': 'स्टॉक जल्द एक्सपायर हो रहा है',
 };
 
 export const NOTIFICATION_TYPE_LABELS: Readonly<Record<Language, NotificationTypeLabels>> = {

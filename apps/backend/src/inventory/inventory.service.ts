@@ -196,6 +196,7 @@ export class InventoryService {
             phone: this.nullableTrim(input.phone),
             email: this.nullableTrim(input.email)?.toLowerCase() ?? null,
             notes: this.nullableTrim(input.notes),
+            leadTimeDays: input.leadTimeDays ?? null,
           },
         });
         await tx.auditLog.create({
@@ -903,6 +904,7 @@ export class InventoryService {
     phone: string | null;
     email: string | null;
     notes: string | null;
+    leadTimeDays?: number | null;
     createdAt: Date;
   }): InventorySupplierDto {
     return {
@@ -913,6 +915,7 @@ export class InventoryService {
       phone: row.phone,
       email: row.email,
       notes: row.notes,
+      leadTimeDays: row.leadTimeDays ?? null,
       createdAt: row.createdAt.toISOString(),
     };
   }

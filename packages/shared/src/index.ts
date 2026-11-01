@@ -21,6 +21,7 @@ export * from './shop-home';
 export * from './inventory';
 export * from './product-catalog';
 export * from './service-usage';
+export * from './inventory-forecast';
 export * from './inventory';
 export * from './offers';
 export * from './employee-voice';

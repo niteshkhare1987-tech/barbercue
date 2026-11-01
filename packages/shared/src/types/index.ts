@@ -1408,6 +1408,10 @@ export const NOTIFICATION_TYPES = [
   // deep link and delivery ledger can never confuse who did what.
   "booking.cancelled_by_shop",
   "booking.rescheduled_by_shop",
+  // Inventory Phase 3 — told to the shop owner once per problem (not daily): a product to reorder
+  // (low, predicted to run out, or out) and stock expiring or expired.
+  "owner.inventory.reorder",
+  "owner.inventory.expiring",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
