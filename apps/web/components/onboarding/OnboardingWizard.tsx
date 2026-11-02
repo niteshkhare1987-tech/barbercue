@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import {
   EMPLOYEE_PATHS,
@@ -157,11 +157,12 @@ export function OnboardingWizard({ applicationId }: Props) {
   if (error && !app) return <p className={base.error} role="alert">{error}</p>;
   if (!app) return <p className={base.empty} aria-busy="true">Loading application…</p>;
 
-  const upload = async (files: FileList | null, category: OnboardingMediaCategory) => {
-    if (!files?.length) return;
+  // Takes a copied array: an input's FileList is live and is emptied when the input is reset.
+  const upload = async (files: File[], category: OnboardingMediaCategory) => {
+    if (!files.length) return;
     if (!(await save(true))) return;
     setError(null);
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       if (file.size > ONBOARDING_MEDIA_LIMITS.maxBytes) {
         setError(`${file.name} is larger than 10 MB.`);
         continue;
@@ -775,19 +776,25 @@ function PhotoPicker({
   category: OnboardingMediaCategory;
   busy: string | null;
   readOnly: boolean;
-  onFiles: (files: FileList | null, category: OnboardingMediaCategory) => void | Promise<void>;
+  onFiles: (files: File[], category: OnboardingMediaCategory) => void | Promise<void>;
 }) {
   if (readOnly) return null;
   const uploading = busy === `upload-${category}`;
+  // Copy the files before clearing the input (which lets the same photo be picked again).
+  const pick = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    void onFiles(files, category);
+  };
   return (
     <div className={styles.uploadButtons} style={{ marginBottom: 10 }}>
       <label className={styles.uploadLabel}>
         {uploading ? "Uploading…" : "Take photo"}
-        <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={!!busy} onChange={(e) => { void onFiles(e.target.files, category); e.target.value = ""; }} />
+        <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={!!busy} onChange={pick} />
       </label>
       <label className={styles.uploadLabel}>
         Upload from device
-        <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={!!busy} onChange={(e) => { void onFiles(e.target.files, category); e.target.value = ""; }} />
+        <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={!!busy} onChange={pick} />
       </label>
     </div>
   );

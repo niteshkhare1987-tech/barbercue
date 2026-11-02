@@ -102,6 +102,32 @@ describe("OnboardingWizard", () => {
     expect(text(r).replace(/ :/g, ":")).toContain("PIN code: PIN does not match");
   });
 
+  it("uploads a picked photo even though the input is cleared straight away", async () => {
+    const draft = baseApp({ status: "DRAFT", canEdit: true });
+    apiFetch.mockImplementation((path, options) =>
+      Promise.resolve(options?.method === "POST" ? { ...draft, media: [{ id: "m1", category: "MENU" }] } : draft),
+    );
+    let r;
+    await act(async () => { r = TestRenderer.create(<OnboardingWizard applicationId="a1" />); });
+    await flush();
+    const menuStep = r.root.findAllByType("button").find((b) => collect(b.props.children).includes("Service menu"));
+    await act(async () => { menuStep.props.onClick(); });
+    await flush();
+
+    // Like the browser's live FileList: clearing the input's value empties it.
+    const file = new File(["x"], "menu.jpg", { type: "image/jpeg" });
+    const files = [file];
+    const target = { get files() { return files; }, set value(_v) { files.length = 0; } };
+    const picker = r.root.findAllByType("input").find((i) => i.props.type === "file" && i.props.multiple);
+    await act(async () => { picker.props.onChange({ target }); });
+    await flush();
+
+    const post = apiFetch.mock.calls.find(([, options]) => options?.method === "POST");
+    expect(post?.[0]).toBe("employee/onboarding/a1/media");
+    expect(post[1].body.get("image").name).toBe("menu.jpg");
+    expect(post[1].body.get("category")).toBe("MENU");
+  });
+
   it("keeps submit disabled while required details are missing", async () => {
     apiFetch.mockResolvedValue(baseApp({ status: "DRAFT", canEdit: true }));
     let r;
