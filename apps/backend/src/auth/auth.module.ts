@@ -20,10 +20,12 @@ import {
   UnavailableProductionEmailSender,
 } from './services/email-sender';
 import { ResendEmailSender } from './services/resend-email-sender';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     PassportModule,
+    NotificationsModule,
     JwtModule.register({
       secret: process.env.JWT_ACCESS_SECRET,
       // Per-call expiresIn (TokenService) always wins; this is just a safe fallback.

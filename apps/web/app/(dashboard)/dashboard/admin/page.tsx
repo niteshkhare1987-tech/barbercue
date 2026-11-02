@@ -47,6 +47,7 @@ export default function AdminDashboardPage() {
   const canOpenCrm = superAdmin || coFounder || hrAdmin || salesAdmin;
   const canReviewVerification = superAdmin || coFounder;
   const canOpenCommandCenter = !!user && canOpenAdminPath(user.roles, "/dashboard/admin/command-center");
+  const canOpenOnboarding = !!user && canOpenAdminPath(user.roles, "/dashboard/admin/onboarding");
   const [data, setData] = useState<PlatformAdminOverviewDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -160,6 +161,7 @@ export default function AdminDashboardPage() {
           {superAdmin && <LinkButton href="/dashboard/admin/access" variant="outline">Access</LinkButton>}
           {canManageEmployees && <LinkButton href="/dashboard/admin/employees" variant="outline">Employees</LinkButton>}
           {canOpenCrm && <LinkButton href="/dashboard/admin/crm" variant="outline">Field CRM</LinkButton>}
+          {canOpenOnboarding && <LinkButton href="/dashboard/admin/onboarding" variant="outline">Salon Onboarding</LinkButton>}
           {canReviewVerification && <LinkButton href="/dashboard/admin/verification" variant="outline">Verification queue</LinkButton>}
           <Button type="button" variant="outline" onClick={() => void logout()}>Log out</Button>
         </div>

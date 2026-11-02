@@ -57,6 +57,7 @@ describe('AuthService', () => {
     queueEntry: { updateMany: jest.Mock };
     review: { deleteMany: jest.Mock };
     auditLog: { updateMany: jest.Mock; create: jest.Mock };
+    salonOnboardingInvitation: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let passwordService: { hash: jest.Mock; compare: jest.Mock };
@@ -124,6 +125,10 @@ describe('AuthService', () => {
       queueEntry: { updateMany: jest.fn() },
       review: { deleteMany: jest.fn() },
       auditLog: { updateMany: jest.fn(), create: jest.fn() },
+      // An ordinary reset token is not an onboarding invitation.
+      salonOnboardingInvitation: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       // Supports both call shapes AuthService actually uses: the array form
       // (resetPassword's batch of writes) and the interactive-callback form (googleLogin's
       // find-or-create) — same dual-mode mock pattern as the rest of this backend's test suite.

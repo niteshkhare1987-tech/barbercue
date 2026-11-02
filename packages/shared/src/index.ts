@@ -23,3 +23,4 @@ export * from './inventory';
 export * from './offers';
 export * from './employee-voice';
 export * from './contact-ledger';
+export * from './onboarding';

@@ -441,6 +441,13 @@ model User {
   manualChairOccupanciesEnded   ManualChairOccupancy[]   @relation("ManualChairOccupancyEndedBy")
   employeeProfile               EmployeeProfile?
   createdDemoWorkspaces         OwnerDemoWorkspace[]     @relation("OwnerDemoWorkspaceCreator")
+  onboardingCreated             SalonOnboardingApplication[] @relation("OnboardingCreatedBy")
+  onboardingReviewing           SalonOnboardingApplication[] @relation("OnboardingReviewer")
+  onboardingApproved            SalonOnboardingApplication[] @relation("OnboardingApprovedBy")
+  onboardingReviews             SalonOnboardingReview[]
+  onboardingStatusChanges       SalonOnboardingStatusHistory[]
+  onboardingMediaUploads        SalonOnboardingMedia[]
+  onboardingInvitations         SalonOnboardingInvitation[]
 
   @@map("users")
 }
@@ -505,6 +512,7 @@ model EmployeeProfile {
   crmVisits    EmployeeCrmVisit[]
   crmFollowUps EmployeeCrmFollowUp[]
   voiceVisitLogs EmployeeVoiceVisitLog[]
+  onboardingApplications SalonOnboardingApplication[]
 
   @@map("employee_profiles")
 }
@@ -533,6 +541,7 @@ model EmployeeCrmLead {
   visits            EmployeeCrmVisit[]
   followUps         EmployeeCrmFollowUp[]
   voiceVisitLogs    EmployeeVoiceVisitLog[]
+  onboardingApplication SalonOnboardingApplication?
 
   @@index([employeeProfileId, status])
   @@index([employeeProfileId, createdAt])
@@ -684,6 +693,8 @@ model PasswordResetToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  onboardingInvitation SalonOnboardingInvitation?
 
   @@index([userId, createdAt])
   @@map("password_reset_tokens")
@@ -976,6 +987,7 @@ model Salon {
   inventoryProducts           InventoryProduct[]
   inventoryMovements          InventoryMovement[]
   demoWorkspace               OwnerDemoWorkspace?
+  onboardingApplication       SalonOnboardingApplication?
 
   @@unique([cityId, slug])
   @@map("salons")
@@ -2473,4 +2485,356 @@ model ContactSuppression {
   createdByUserId String?
 
   @@map("contact_suppressions")
+}
+
+// ---------- Employee-to-admin salon onboarding ----------
+// A field employee's application to list a salon. Nothing here is public: the master Salon row is
+// created only on admin approval (status PENDING, so still invisible to discovery), and publication
+// is a separate, recorded admin decision (publishAuthorizedAt). Unknown details stay NULL; the
+// workflow never fills in a value nobody supplied.
+
+enum OnboardingStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  RESUBMITTED
+  REJECTED
+  APPROVED
+  OWNER_INVITED
+  AWAITING_OWNER_ACTIVATION
+  READY_TO_PUBLISH
+  ACTIVE
+  SUSPENDED
+}
+
+enum OnboardingGender {
+  MEN
+  WOMEN
+  UNISEX
+}
+
+enum OnboardingSalonKind {
+  BARBER_SHOP
+  BEAUTY_SALON
+  UNISEX_SALON
+  SPA
+  OTHER
+}
+
+enum OnboardingMediaCategory {
+  EXTERIOR
+  INTERIOR
+  STATIONS
+  RECEPTION
+  LOGO
+  MENU
+  OTHER
+}
+
+enum OnboardingServiceSource {
+  MANUAL
+  AI_EXTRACTED
+}
+
+enum OnboardingPriceType {
+  FIXED
+  STARTS_FROM
+}
+
+enum OnboardingReviewDecision {
+  START_REVIEW
+  NOTE
+  CORRECTION
+  REQUEST_CHANGES
+  REJECT
+  APPROVE
+}
+
+// SENT means the provider accepted the message; CAPTURED_DEV means the development console
+// sender logged the link and nothing left the machine. Neither is "delivered".
+enum OnboardingInvitationStatus {
+  PENDING
+  SENT
+  CAPTURED_DEV
+  FAILED
+  DELIVERY_UNAVAILABLE
+  ACCEPTED
+  REVOKED
+}
+
+model SalonOnboardingApplication {
+  id                         String               @id @default(uuid())
+  // Display reference only ("FQ-ONB-2026-000001"); never used for authorization or public access.
+  // Assigned by a Postgres sequence default (see migration 20261101090000_salon_onboarding).
+  reference                  String               @unique @default(dbgenerated("(((('FQ-ONB-'::text || to_char(now(), 'YYYY'::text)) || '-'::text) || lpad((nextval('salon_onboarding_reference_seq'::regclass))::text, 6, '0'::text)))"))
+  // Incremented on every edit after first submission and on every admin correction, so a review
+  // decision records exactly which version it judged.
+  version                    Int                  @default(1)
+  status                     OnboardingStatus     @default(DRAFT)
+  leadId                     String               @unique
+  lead                       EmployeeCrmLead      @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  salonId                    String?              @unique
+  salon                      Salon?               @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  assignedEmployeeId         String
+  assignedEmployee           EmployeeProfile      @relation(fields: [assignedEmployeeId], references: [id], onDelete: Restrict)
+  createdByUserId            String
+  createdBy                  User                 @relation("OnboardingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  // Snapshot of the employee's territory at creation; drives read-only sharing between employees.
+  territory                  String?              @db.VarChar(120)
+  reviewerId                 String?
+  reviewer                   User?                @relation("OnboardingReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  // Step 1 - identity
+  salonName                  String               @db.VarChar(160)
+  genderCategory             OnboardingGender?
+  salonKind                  OnboardingSalonKind?
+  description                String?              @db.VarChar(2000)
+  brandName                  String?              @db.VarChar(160)
+  websiteUrl                 String?              @db.VarChar(500)
+  instagramUrl               String?              @db.VarChar(500)
+  mapsUrl                    String?              @db.VarChar(1000)
+  isFranchise                Boolean?
+  branchCount                Int?
+
+  // Step 2 - owner / contact (private until the owner account exists)
+  ownerName                  String?              @db.VarChar(160)
+  ownerPhone                 String?              @db.VarChar(20)
+  ownerWhatsapp              String?              @db.VarChar(20)
+  ownerEmail                 String?              @db.VarChar(254)
+  alternatePhone             String?              @db.VarChar(20)
+  managerName                String?              @db.VarChar(160)
+  managerPhone               String?              @db.VarChar(20)
+  preferredLanguage          String?              @db.VarChar(40)
+
+  // Step 3 - address
+  shopNumber                 String?              @db.VarChar(60)
+  buildingName               String?              @db.VarChar(160)
+  streetAddress              String?              @db.VarChar(300)
+  locality                   String?              @db.VarChar(160)
+  city                       String?              @db.VarChar(120)
+  district                   String?              @db.VarChar(120)
+  state                      String?              @db.VarChar(120)
+  postalCode                 String?              @db.VarChar(12)
+  country                    String?              @db.VarChar(80)
+  landmark                   String?              @db.VarChar(200)
+  latitude                   Float?
+  longitude                  Float?
+  // GPS / MAP_PIN / MANUAL: coordinates are only stored with an explicit source.
+  coordinatesSource          String?              @db.VarChar(16)
+
+  // Step 4 - operations
+  employeeCount              Int?
+  chairCount                 Int?
+  activeChairCount           Int?
+  maleStaffCount             Int?
+  femaleStaffCount           Int?
+  walkInsAccepted            Boolean?
+  bookingsAccepted           Boolean?
+  liveQueueSupported         Boolean?
+  appointmentIntervalMinutes Int?
+  averageServiceMinutes      Int?
+  specialTimings             String?              @db.VarChar(1000)
+
+  // Step 7 - verification and consent
+  consentContact             Boolean              @default(false)
+  consentListing             Boolean              @default(false)
+  consentAccuracy            Boolean              @default(false)
+  consentAuthorization       Boolean              @default(false)
+  consentCapturedAt          DateTime?
+  gstin                      String?              @db.VarChar(15)
+  businessRegistration       String?              @db.VarChar(200)
+  employeeNotes              String?              @db.VarChar(2000)
+  openQuestions              String?              @db.VarChar(2000)
+
+  // Admin-only fields
+  internalNotes              String?              @db.VarChar(4000)
+  photoExceptionReason       String?              @db.VarChar(500)
+  photoExceptionById         String?
+  // [{ field, message }]: exactly which information needs correction.
+  changeRequest              Json?
+
+  firstSubmittedAt           DateTime?
+  submittedAt                DateTime?
+  reviewStartedAt            DateTime?
+  approvedAt                 DateTime?
+  approvedById               String?
+  approvedBy                 User?                @relation("OnboardingApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedVersion            Int?
+  rejectedAt                 DateTime?
+  rejectionReason            String?              @db.VarChar(1000)
+  publishAuthorizedAt        DateTime?
+  publishAuthorizedById      String?
+  publishedAt                DateTime?
+  suspendedAt                DateTime?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+
+  hours         SalonOnboardingHours[]
+  services      SalonOnboardingService[]
+  media         SalonOnboardingMedia[]
+  extractions   SalonOnboardingExtraction[]
+  reviews       SalonOnboardingReview[]
+  statusHistory SalonOnboardingStatusHistory[]
+  invitations   SalonOnboardingInvitation[]
+
+  @@index([status, submittedAt])
+  @@index([assignedEmployeeId, status])
+  @@index([territory, status])
+  @@index([city])
+  @@index([ownerPhone])
+  @@index([ownerEmail])
+  @@index([reviewerId, status])
+  @@map("salon_onboarding_applications")
+}
+
+// One row per weekday (0 = Sunday .. 6 = Saturday, matching OperatingHours). Real TIME columns;
+// closesNextDay marks hours that run past midnight (e.g. 18:00 -> 02:00).
+model SalonOnboardingHours {
+  id            String                     @id @default(uuid())
+  applicationId String
+  application   SalonOnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  dayOfWeek     Int
+  isClosed      Boolean                    @default(false)
+  opensAt       DateTime?                  @db.Time(0)
+  closesAt      DateTime?                  @db.Time(0)
+  closesNextDay Boolean                    @default(false)
+
+  @@unique([applicationId, dayOfWeek])
+  @@map("salon_onboarding_hours")
+}
+
+model SalonOnboardingService {
+  id                   String                     @id @default(uuid())
+  applicationId        String
+  application          SalonOnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  serviceName          String                     @db.VarChar(120)
+  // Lowercased, punctuation-free name + gender; merges duplicates across photos and manual rows.
+  normalizedKey        String                     @db.VarChar(160)
+  category             String?                    @db.VarChar(80)
+  applicableGender     OnboardingGender?
+  basePrice            Decimal?                   @db.Decimal(10, 2)
+  priceType            OnboardingPriceType        @default(FIXED)
+  discountedPrice      Decimal?                   @db.Decimal(10, 2)
+  // Never defaulted: a missing duration stays NULL until the employee or owner enters it.
+  durationMinutes      Int?
+  description          String?                    @db.VarChar(500)
+  isActive             Boolean                    @default(true)
+  sourceType           OnboardingServiceSource    @default(MANUAL)
+  sourceMediaId        String?
+  sourceMedia          SalonOnboardingMedia?      @relation(fields: [sourceMediaId], references: [id], onDelete: SetNull)
+  sourcePage           Int?
+  extractionConfidence Float?
+  // Field names the extractor was unsure about (e.g. ["basePrice"]); cleared when confirmed.
+  uncertainFields      String[]
+  confirmedByEmployee  Boolean                    @default(false)
+  sortOrder            Int                        @default(0)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  @@index([applicationId, sortOrder])
+  @@map("salon_onboarding_services")
+}
+
+// Private files. storageKey points into private storage only, never a public URL; files are
+// streamed through authenticated API routes.
+model SalonOnboardingMedia {
+  id               String                     @id @default(uuid())
+  applicationId    String
+  application      SalonOnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  storageKey       String                     @unique @db.VarChar(300)
+  category         OnboardingMediaCategory
+  originalFilename String                     @db.VarChar(200)
+  mimeType         String                     @db.VarChar(40)
+  fileSize         Int
+  sha256           String                     @db.VarChar(64)
+  width            Int?
+  height           Int?
+  uploadedById     String
+  uploadedBy       User                       @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt        DateTime                   @default(now())
+  deletedAt        DateTime?
+
+  services    SalonOnboardingService[]
+  extractions SalonOnboardingExtraction[]
+
+  @@index([applicationId, category])
+  @@index([applicationId, sha256])
+  @@map("salon_onboarding_media")
+}
+
+model SalonOnboardingExtraction {
+  id            String                     @id @default(uuid())
+  applicationId String
+  application   SalonOnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  mediaId       String
+  media         SalonOnboardingMedia       @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  provider      String                     @db.VarChar(40)
+  status        String                     @db.VarChar(16)
+  serviceCount  Int                        @default(0)
+  errorCode     String?                    @db.VarChar(60)
+  result        Json?
+  requestedById String
+  createdAt     DateTime                   @default(now())
+
+  @@index([applicationId, createdAt])
+  @@map("salon_onboarding_extractions")
+}
+
+model SalonOnboardingReview {
+  id                 String                     @id @default(uuid())
+  applicationId      String
+  application        SalonOnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewerId         String
+  reviewer           User                       @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  decision           OnboardingReviewDecision
+  comments           String?                    @db.VarChar(4000)
+  // CORRECTION: [{ field, from, to }]; REQUEST_CHANGES: [{ field, message }].
+  details            Json?
+  applicationVersion Int
+  reviewedAt         DateTime                   @default(now())
+
+  @@index([applicationId, reviewedAt])
+  @@map("salon_onboarding_reviews")
+}
+
+model SalonOnboardingStatusHistory {
+  id             String                     @id @default(uuid())
+  applicationId  String
+  application    SalonOnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  previousStatus OnboardingStatus?
+  newStatus      OnboardingStatus
+  actorId        String?
+  actor          User?                      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  reason         String?                    @db.VarChar(1000)
+  createdAt      DateTime                   @default(now())
+
+  @@index([applicationId, createdAt])
+  @@index([newStatus, createdAt])
+  @@map("salon_onboarding_status_history")
+}
+
+// The secret lives only as PasswordResetToken.tokenHash (sha256); the raw token is never stored.
+model SalonOnboardingInvitation {
+  id                   String                     @id @default(uuid())
+  applicationId        String
+  application          SalonOnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  ownerUserId          String
+  ownerUser            User                       @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  passwordResetTokenId String?                    @unique
+  passwordResetToken   PasswordResetToken?        @relation(fields: [passwordResetTokenId], references: [id], onDelete: SetNull)
+  channel              String                     @default("EMAIL") @db.VarChar(16)
+  status               OnboardingInvitationStatus @default(PENDING)
+  attempts             Int                        @default(0)
+  lastError            String?                    @db.VarChar(300)
+  createdById          String
+  sentAt               DateTime?
+  expiresAt            DateTime
+  acceptedAt           DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  @@index([applicationId, createdAt])
+  @@index([ownerUserId, status])
+  @@map("salon_onboarding_invitations")
 }

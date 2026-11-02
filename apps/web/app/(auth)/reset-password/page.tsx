@@ -14,6 +14,8 @@ function ResetPasswordForm() {
   const audienceResult = passwordAudienceSchema.safeParse(searchParams.get("audience"));
   const audience = audienceResult.success ? audienceResult.data : "staff";
   const loginPath = audience === "owner" ? "/owner/login" : audience === "admin" ? "/admin/login" : "/staff/login";
+  // Invitation links (staff invites, salon-onboarding owner invites) set a first password.
+  const invite = searchParams.get("intent") === "invite";
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -65,8 +67,12 @@ function ResetPasswordForm() {
   return (
     <AuthCard
       audience="recovery"
-      title="Choose a new password"
-      subtitle="Set the new password for this owner, staff or administrator account."
+      title={invite ? "Set up your FastQue password" : "Choose a new password"}
+      subtitle={
+        invite
+          ? "Choose your own password to activate your account. This link works once; FastQue never sends passwords."
+          : "Set the new password for this owner, staff or administrator account."
+      }
       showAudienceLinks={false}
     >
       <form onSubmit={handleSubmit} className={authStyles.form}>
@@ -106,7 +112,7 @@ function ResetPasswordForm() {
         </label>
         <p className={authStyles.contextLine}>Use 8–72 characters. A successful reset signs out every existing session.</p>
         <button type="submit" className={authStyles.primaryButton} disabled={submitting}>
-          {submitting ? "Updating…" : "Update password"}
+          {submitting ? "Updating…" : invite ? "Activate account" : "Update password"}
         </button>
       </form>
     </AuthCard>

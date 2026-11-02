@@ -25,7 +25,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "seed:test-shops": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed-test-shops.ts",
-    "seed:test-shops:delete": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/delete-test-shops.ts"
+    "seed:test-shops:delete": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/delete-test-shops.ts",
+    "seed:onboarding-demo": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed-onboarding-demo.ts"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import {
   BookingErrorCode,
   ChairStatus,
+  OnboardingErrorCode,
   SalonSetupErrorCode,
   SalonStatus,
   StaffMemberStatus,
@@ -161,6 +162,7 @@ export class SalonActivationService {
             current.status === SalonStatus.PENDING &&
             input.status === SalonStatus.ACTIVE
           ) {
+            await this.assertOnboardingPublishAuthorized(salonId, tx);
             await this.assertReadyToOpen(salonId, tx);
             await this.assertPhotoReadyToActivate(
               salonId,
@@ -168,6 +170,12 @@ export class SalonActivationService {
               tx,
             );
           }
+          await this.syncOnboardingApplication(
+            tx,
+            salonId,
+            input.status,
+            adminUserId,
+          );
           const updated = await tx.salon.update({
             where: { id: salonId },
             data: {
@@ -264,11 +272,18 @@ export class SalonActivationService {
               HttpStatus.CONFLICT,
             );
           }
+          await this.assertOnboardingPublishAuthorized(salonId, tx);
           await this.assertReadyToOpen(salonId, tx);
           await this.assertPhotoReadyToActivate(
             salonId,
             current.shopPhotoRequirementGrandfathered,
             tx,
+          );
+          await this.syncOnboardingApplication(
+            tx,
+            salonId,
+            SalonStatus.ACTIVE,
+            ownerUserId,
           );
           const updated = await tx.salon.update({
             where: { id: salonId },
@@ -289,6 +304,68 @@ export class SalonActivationService {
     } catch (error) {
       this.rethrowPhotoActivationConflict(error);
     }
+  }
+
+  /**
+   * Salon onboarding gate: a salon created from a field-employee onboarding application opens
+   * for the first time only after a FastQue admin has recorded the publication decision. Salons
+   * registered by their owners directly have no application and are unaffected.
+   */
+  private async assertOnboardingPublishAuthorized(
+    salonId: string,
+    db: Prisma.TransactionClient | PrismaService,
+  ): Promise<void> {
+    const application = await db.salonOnboardingApplication.findUnique({
+      where: { salonId },
+      select: { publishAuthorizedAt: true },
+    });
+    if (application && !application.publishAuthorizedAt) {
+      throw new AppException(
+        OnboardingErrorCode.PUBLISH_NOT_AUTHORIZED,
+        'FastQue is still reviewing this salon. It goes live once the FastQue team approves publication.',
+        HttpStatus.CONFLICT,
+      );
+    }
+  }
+
+  /** Keeps an onboarding application's status in step with its salon's real lifecycle status. */
+  private async syncOnboardingApplication(
+    tx: Prisma.TransactionClient,
+    salonId: string,
+    status: SalonStatus,
+    actorId: string,
+  ): Promise<void> {
+    const application = await tx.salonOnboardingApplication.findUnique({
+      where: { salonId },
+      select: { id: true, status: true, publishedAt: true },
+    });
+    const target =
+      status === SalonStatus.ACTIVE
+        ? 'ACTIVE'
+        : status === SalonStatus.SUSPENDED
+          ? 'SUSPENDED'
+          : null;
+    if (!application || !target || application.status === target) return;
+    const now = new Date();
+    await tx.salonOnboardingApplication.update({
+      where: { id: application.id },
+      data: {
+        status: target,
+        ...(target === 'ACTIVE'
+          ? { publishedAt: application.publishedAt ?? now, suspendedAt: null }
+          : { suspendedAt: now }),
+      },
+    });
+    await tx.salonOnboardingStatusHistory.create({
+      data: {
+        applicationId: application.id,
+        previousStatus: application.status,
+        newStatus: target,
+        actorId,
+        reason:
+          target === 'ACTIVE' ? 'Salon is live on FastQue' : 'Salon suspended',
+      },
+    });
   }
 
   private async assertPhotoReadyToActivate(

@@ -20,8 +20,9 @@ import { ApiError, apiFetch } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import styles from "./employee.module.css";
 import { EmployeeShopDetails } from "./EmployeeShopDetails";
+import { EmployeeOnboardingTab } from "../../components/onboarding/EmployeeOnboardingTab";
 
-type Tab = "dashboard" | "leads" | "visits" | "followups";
+type Tab = "dashboard" | "leads" | "visits" | "followups" | "onboarding";
 
 const employeeBase = EMPLOYEE_PATHS.employee;
 
@@ -47,7 +48,13 @@ function errorMessage(error: unknown, fallback: string): string {
 export default function EmployeeDashboardPage() {
   const { user, status, logout } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("dashboard");
+  // "?tab=onboarding" deep-links back from the onboarding pages. Tabs render only after the
+  // dashboard loads (client-side), so reading the URL here cannot cause a hydration mismatch.
+  const [tab, setTab] = useState<Tab>(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "onboarding"
+      ? "onboarding"
+      : "dashboard",
+  );
   const [dashboard, setDashboard] = useState<EmployeeCrmDashboardDto | null>(null);
   const [leads, setLeads] = useState<EmployeeCrmLeadDto[]>([]);
   const [visits, setVisits] = useState<EmployeeCrmVisitDto[]>([]);
@@ -112,6 +119,7 @@ export default function EmployeeDashboardPage() {
     void refreshAll();
   }, [refreshAll, router, status, user]);
 
+
   const filteredLeads = useMemo(() => {
     const q = leadQuery.trim().toLowerCase();
     if (!q) return leads;
@@ -168,6 +176,30 @@ export default function EmployeeDashboardPage() {
     } catch (requestError) {
       setError(errorMessage(requestError, "Could not update the lead."));
     } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Option A: convert an existing lead into an onboarding application (prefilled from the lead). */
+  async function startOnboarding(lead: EmployeeCrmLeadDto) {
+    setBusy(`start-${lead.id}`);
+    setError(null);
+    try {
+      const created = await apiFetch<{ id: string }>(
+        `${employeeBase}/${EMPLOYEE_PATHS.leads}/${lead.id}/${EMPLOYEE_PATHS.onboarding}`,
+        { method: "POST", body: "{}" },
+      );
+      router.push(`/employee/onboarding/${created.id}`);
+    } catch (requestError) {
+      const existing =
+        requestError instanceof ApiError &&
+        requestError.details &&
+        typeof requestError.details === "object" &&
+        "applicationId" in requestError.details
+          ? String((requestError.details as { applicationId: string }).applicationId)
+          : null;
+      if (existing) router.push(`/employee/onboarding/${existing}`);
+      else setError(errorMessage(requestError, "Could not start onboarding for this lead."));
       setBusy(null);
     }
   }
@@ -345,6 +377,7 @@ export default function EmployeeDashboardPage() {
             ["leads", `Leads (${leads.length})`],
             ["visits", `Visits (${visits.length})`],
             ["followups", `Follow-ups (${openFollowUps.length})`],
+            ["onboarding", "Salon Onboarding"],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -377,6 +410,7 @@ export default function EmployeeDashboardPage() {
               <div className={styles.sectionHeader}><h2>Quick actions</h2><span>Keep the pipeline moving</span></div>
               <div className={styles.quickActions}>
                 <button type="button" className={styles.primaryButton} onClick={() => setTab("leads")}>+ Add lead</button>
+                <Link className={styles.primaryButton} href="/employee/onboarding/new">+ New salon onboarding</Link>
                 <button type="button" className={styles.secondaryButton} onClick={() => setTab("visits")}>Log visit</button>
                 <button type="button" className={styles.secondaryButton} onClick={() => setTab("followups")}>Schedule follow-up</button>
               </div>
@@ -417,6 +451,8 @@ export default function EmployeeDashboardPage() {
             </section>
           </div>
         )}
+
+        {tab === "onboarding" && <EmployeeOnboardingTab />}
 
         {tab === "leads" && (
           <>
@@ -486,9 +522,16 @@ export default function EmployeeDashboardPage() {
                           )}
                         </td>
                         <td>
-                          <Link className={styles.smallButton} href={`/employee/voice-onboarding/${lead.id}`}>
-                            Start voice onboarding
-                          </Link>
+                          <div className={styles.inlineButtons}>
+                            {lead.status !== CrmLeadStatus.ONBOARDED && (
+                              <button type="button" className={styles.smallButton} disabled={busy === `start-${lead.id}`} onClick={() => void startOnboarding(lead)}>
+                                {busy === `start-${lead.id}` ? "Opening…" : "Start onboarding"}
+                              </button>
+                            )}
+                            <Link className={styles.smallButton} href={`/employee/voice-onboarding/${lead.id}`}>
+                              Start voice onboarding
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}

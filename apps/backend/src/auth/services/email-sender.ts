@@ -19,6 +19,13 @@ export interface EmailSender {
     setupUrl: string,
     expiresInDays: number,
   ): Promise<void>;
+  /** Salon onboarding: the approved salon's owner sets their own password through this link. */
+  sendOwnerInvitation(
+    email: string,
+    salonName: string,
+    setupUrl: string,
+    expiresInHours: number,
+  ): Promise<void>;
 }
 
 export const EMAIL_SENDER = Symbol('EMAIL_SENDER');
@@ -50,6 +57,18 @@ export class ConsoleEmailSender implements EmailSender {
     );
     return Promise.resolve();
   }
+
+  sendOwnerInvitation(
+    email: string,
+    salonName: string,
+    setupUrl: string,
+    expiresInHours: number,
+  ): Promise<void> {
+    this.logger.warn(
+      `Development owner-invitation capture for ${email} (${salonName}): ${setupUrl} (valid ${expiresInHours} hours). Nothing was sent.`,
+    );
+    return Promise.resolve();
+  }
 }
 
 /** Production fails truthfully until an explicitly approved transactional transport is bound. */
@@ -68,6 +87,10 @@ export class UnavailableProductionEmailSender implements EmailSender {
   }
 
   sendStaffInvitation(): Promise<void> {
+    this.assertAvailable();
+  }
+
+  sendOwnerInvitation(): Promise<void> {
     this.assertAvailable();
   }
 }

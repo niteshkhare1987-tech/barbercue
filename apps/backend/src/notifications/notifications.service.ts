@@ -34,6 +34,13 @@ const TYPE_CATEGORY: Record<NotificationType, NotificationCategory> = {
   'owner.booking.arrival_check': NotificationCategory.BOOKING_UPDATES,
   'booking.cancelled_by_shop': NotificationCategory.BOOKING_UPDATES,
   'booking.rescheduled_by_shop': NotificationCategory.BOOKING_UPDATES,
+  // Salon onboarding workflow notices are operational, so they ride the default-on category.
+  'onboarding.submitted': NotificationCategory.BOOKING_UPDATES,
+  'onboarding.changes_requested': NotificationCategory.BOOKING_UPDATES,
+  'onboarding.approved': NotificationCategory.BOOKING_UPDATES,
+  'onboarding.rejected': NotificationCategory.BOOKING_UPDATES,
+  'onboarding.owner_activated': NotificationCategory.BOOKING_UPDATES,
+  'onboarding.published': NotificationCategory.BOOKING_UPDATES,
 };
 
 const ALL_CATEGORIES: NotificationCategory[] = [

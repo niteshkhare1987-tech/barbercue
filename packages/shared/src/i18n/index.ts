@@ -2484,6 +2484,12 @@ const enNotificationTypeLabels: NotificationTypeLabels = {
   'owner.booking.arrival_check': 'Appointment arrival check',
   'booking.cancelled_by_shop': 'Appointment cancelled by the shop',
   'booking.rescheduled_by_shop': 'Appointment time changed by the shop',
+  'onboarding.submitted': 'Salon onboarding submitted for review',
+  'onboarding.changes_requested': 'Changes requested on a salon application',
+  'onboarding.approved': 'Salon application approved',
+  'onboarding.rejected': 'Salon application rejected',
+  'onboarding.owner_activated': 'Salon owner activated their account',
+  'onboarding.published': 'Salon is now live on FastQue',
 };
 
 const hiNotificationTypeLabels: NotificationTypeLabels = {
@@ -2503,6 +2509,12 @@ const hiNotificationTypeLabels: NotificationTypeLabels = {
   'owner.booking.arrival_check': 'अपॉइंटमेंट आगमन जांच',
   'booking.cancelled_by_shop': 'दुकान ने अपॉइंटमेंट रद्द की',
   'booking.rescheduled_by_shop': 'दुकान ने अपॉइंटमेंट का समय बदला',
+  'onboarding.submitted': 'सैलून ऑनबोर्डिंग समीक्षा के लिए भेजी गई',
+  'onboarding.changes_requested': 'सैलून आवेदन में बदलाव का अनुरोध',
+  'onboarding.approved': 'सैलून आवेदन स्वीकृत',
+  'onboarding.rejected': 'सैलून आवेदन अस्वीकृत',
+  'onboarding.owner_activated': 'सैलून मालिक ने खाता सक्रिय किया',
+  'onboarding.published': 'सैलून अब FastQue पर लाइव है',
 };
 
 export const NOTIFICATION_TYPE_LABELS: Readonly<Record<Language, NotificationTypeLabels>> = {

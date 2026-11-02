@@ -59,6 +59,20 @@ export class ResendEmailSender implements EmailSender {
     );
   }
 
+  async sendOwnerInvitation(
+    email: string,
+    salonName: string,
+    setupUrl: string,
+    expiresInHours: number,
+  ): Promise<void> {
+    const safeName = salonName.replace(/[<>&"']/g, '');
+    await this.send(
+      email,
+      `Your FastQue account for ${safeName}`,
+      `<p>${safeName} has been approved on FastQue. Click the link below to set your own password and open your salon dashboard. FastQue will never send you a password.</p><p>This link can be used once and expires in ${expiresInHours} hours.</p><p><a href="${setupUrl}">${setupUrl}</a></p>`,
+    );
+  }
+
   private async send(to: string, subject: string, html: string): Promise<void> {
     this.assertAvailable();
     const apiKey = process.env.RESEND_API_KEY as string;

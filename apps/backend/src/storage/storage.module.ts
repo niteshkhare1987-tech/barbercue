@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ObjectStorageService } from './object-storage.service';
+import { PrivateObjectStorageService } from './private-object-storage.service';
 
 /**
  * Photo storage — a Railway-mounted volume at launch, S3-compatible object storage (Cloudflare
@@ -11,7 +12,7 @@ import { ObjectStorageService } from './object-storage.service';
  * say) should import this rather than reach into another feature module.
  */
 @Module({
-  providers: [ObjectStorageService],
-  exports: [ObjectStorageService],
+  providers: [ObjectStorageService, PrivateObjectStorageService],
+  exports: [ObjectStorageService, PrivateObjectStorageService],
 })
 export class StorageModule {}

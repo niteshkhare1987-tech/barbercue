@@ -1344,6 +1344,13 @@ export const NOTIFICATION_TYPES = [
   // deep link and delivery ledger can never confuse who did what.
   "booking.cancelled_by_shop",
   "booking.rescheduled_by_shop",
+  // Salon onboarding (onboarding.ts). In-app only; email/SMS stay unavailable until configured.
+  "onboarding.submitted",
+  "onboarding.changes_requested",
+  "onboarding.approved",
+  "onboarding.rejected",
+  "onboarding.owner_activated",
+  "onboarding.published",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
