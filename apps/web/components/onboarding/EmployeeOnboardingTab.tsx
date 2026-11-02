@@ -68,7 +68,7 @@ export function EmployeeOnboardingTab() {
             + New onboarding
           </Link>
         </div>
-        <nav className={base.tabs} aria-label="Onboarding categories">
+        <nav className={`${base.tabs} ${styles.categoryTabs}`} aria-label="Onboarding categories">
           {BUCKETS.map((b) => (
             <button key={b} type="button" className={bucket === b ? base.tabActive : base.tab} onClick={() => setBucket(b)}>
               {ONBOARDING_BUCKET_LABELS[b]}

@@ -473,6 +473,26 @@
   font-size: .74rem;
 }
 
+/* The category row scrolls sideways on narrow screens; keep its scrollbar thin and dark instead
+   of the browser's default light bar (very visible on Windows). */
+.categoryTabs {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 110, 73, .45) transparent;
+}
+
+.categoryTabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.categoryTabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.categoryTabs::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 110, 73, .45);
+}
+
 .bucketList {
   display: grid;
   gap: 8px;
