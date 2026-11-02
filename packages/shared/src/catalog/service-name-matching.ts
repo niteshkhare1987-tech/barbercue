@@ -7,6 +7,8 @@
 
 export interface ServiceNameGroup {
   id: string;
+  /** The one name the Service field suggests for every equivalent name in this group. */
+  label: string;
   /** Substrings of a real Service.name that count as this service (case-insensitive). */
   match: readonly string[];
   /** Extra ways customers type it (Hinglish, shorthand) — recognised in the query only, never
@@ -19,6 +21,7 @@ export interface ServiceNameGroup {
 export const SERVICE_NAME_GROUPS: readonly ServiceNameGroup[] = [
   {
     id: 'haircut',
+    label: 'Haircut',
     match: [
       'haircut', 'hair cut', 'hair cutting', 'haircutting', 'hair trim', 'buzz cut', 'crew cut',
       'skin fade', 'zero fade', 'हेयरकट', 'हेयर कट', 'बाल कटाई',
@@ -27,12 +30,14 @@ export const SERVICE_NAME_GROUPS: readonly ServiceNameGroup[] = [
   },
   {
     id: 'shave',
+    label: 'Shave',
     match: ['shave', 'shaving', 'शेव', 'दाढ़ी बनाना'],
     aliases: ['dadhi banana', 'dadi banana', 'daadhi banana', 'dadhi banwana', 'clean shave'],
     exclude: ['head shave', 'head shaving'],
   },
   {
     id: 'beard-trim',
+    label: 'Beard Trim',
     match: [
       'beard trim', 'beard trimming', 'beard shape', 'beard shaping', 'beard styling', 'beard style',
       'beard setting', 'beard set', 'beard line', 'दाढ़ी ट्रिम',
@@ -41,11 +46,13 @@ export const SERVICE_NAME_GROUPS: readonly ServiceNameGroup[] = [
   },
   {
     id: 'moustache-trim',
+    label: 'Moustache Trim',
     match: ['moustache', 'mustache', 'मूंछ'],
     aliases: ['mooch', 'moonch', 'much trim'],
   },
   {
     id: 'head-massage',
+    label: 'Head Massage',
     match: [
       'head massage', 'head massaz', 'head massag', 'head oil massage', 'scalp massage', 'hair oil massage',
       'champi', 'chumpi', 'champee', 'sir ki malish', 'sar ki malish', 'सिर की मालिश', 'चंपी',
@@ -54,29 +61,35 @@ export const SERVICE_NAME_GROUPS: readonly ServiceNameGroup[] = [
   },
   {
     id: 'face-massage',
+    label: 'Face Massage',
     match: ['face massage', 'chehre ki malish', 'चेहरे की मालिश'],
     aliases: ['face malish', 'chehra malish'],
   },
   {
     id: 'facial',
+    label: 'Facial',
     match: ['facial', 'फेशियल'],
     aliases: ['fecial', 'fesial', 'face facial'],
   },
   {
     id: 'face-bleach',
+    label: 'Bleach',
     match: ['bleach', 'ब्लीच'],
     aliases: ['blich'],
   },
   {
     id: 'cleanup',
+    label: 'Cleanup',
     match: ['cleanup', 'clean up', 'clean-up'],
   },
   {
     id: 'detan',
+    label: 'Detan',
     match: ['detan', 'de-tan', 'de tan', 'd-tan', 'd tan'],
   },
   {
     id: 'hair-color',
+    label: 'Hair Colour',
     match: [
       'hair color', 'hair colour', 'hair coloring', 'hair colouring', 'hair dye', 'hair dyeing',
       'global color', 'global colour', 'root touch', 'हेयर कलर',
@@ -85,51 +98,62 @@ export const SERVICE_NAME_GROUPS: readonly ServiceNameGroup[] = [
   },
   {
     id: 'hair-spa',
+    label: 'Hair Spa',
     match: ['hair spa', 'hairspa', 'nourishment spa', 'हेयर स्पा'],
     aliases: ['spa for hair'],
   },
   {
     id: 'hair-wash',
+    label: 'Hair Wash',
     match: ['hair wash', 'hairwash', 'shampoo'],
     aliases: ['baal dhona', 'bal dhona', 'head wash'],
   },
   {
     id: 'threading',
+    label: 'Threading',
     match: ['threading', 'थ्रेडिंग'],
     aliases: ['eyebrow threading', 'aibro', 'eye brow', 'bhau'],
   },
   {
     id: 'waxing',
+    label: 'Waxing',
     match: ['wax', 'वैक्स'],
     aliases: ['waxing'],
   },
   {
     id: 'manicure',
+    label: 'Manicure',
     match: ['manicure', 'मैनीक्योर'],
   },
   {
     id: 'pedicure',
+    label: 'Pedicure',
     match: ['pedicure', 'पेडीक्योर'],
   },
   {
     id: 'makeup',
+    label: 'Makeup',
     match: ['makeup', 'make up', 'make-up', 'मेकअप'],
   },
   {
     id: 'hair-straightening',
+    label: 'Hair Straightening',
     match: ['straightening', 'straighten'],
     aliases: ['straightner', 'straightener'],
   },
   {
     id: 'smoothening',
+    label: 'Smoothening',
     match: ['smoothening', 'smoothing'],
   },
   {
     id: 'rebonding',
+    label: 'Rebonding',
     match: ['rebonding', 're-bonding', 're bonding'],
   },
   {
     id: 'keratin',
+    label: 'Keratin',
     match: ['keratin'],
   },
 ];
@@ -281,4 +305,20 @@ export function serviceNameMatches(search: ServiceNameSearch, serviceName: strin
     search.match.some((term) => name.includes(term.toLowerCase())) &&
     !search.exclude.some((term) => name.includes(term.toLowerCase()))
   );
+}
+
+/**
+ * Service-field suggestions with equivalent names merged: every name that resolves to the same
+ * group ("Haircut", "Gents Haircut", "Hair Cutting") becomes that group's one label, since picking
+ * any of them returns the same salons. Other names stay as they are, de-duplicated ignoring case.
+ * Keeps first-appearance order.
+ */
+export function mergeServiceSuggestions(names: readonly string[]): string[] {
+  const merged = new Map<string, string>();
+  for (const name of names) {
+    const group = resolveServiceNameGroup(name);
+    const key = group ? `group:${group.id}` : `name:${normalizeServiceText(name)}`;
+    if (!merged.has(key)) merged.set(key, group ? group.label : name);
+  }
+  return [...merged.values()];
 }

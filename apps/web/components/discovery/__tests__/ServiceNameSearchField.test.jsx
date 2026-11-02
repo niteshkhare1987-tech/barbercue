@@ -10,13 +10,16 @@ describe('ServiceNameSearchField', () => {
     global.fetch = savedFetch;
   });
 
-  it('suggests real service names and submits the selected service on Enter', async () => {
+  it('suggests real service names, merging equivalent ones, and submits the selected service on Enter', async () => {
     jest.useFakeTimers();
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => [
-        { name: 'Hair Cut', category: 'Hair' },
+        { name: 'Gents Haircut', category: 'Hair' },
+        { name: 'Hair Colour', category: 'Hair' },
         { name: 'Hair Cutting', category: null },
+        { name: 'Hair Spa', category: null },
+        { name: 'Haircut', category: 'Hair' },
       ],
     });
     const onChange = jest.fn();
@@ -44,13 +47,13 @@ describe('ServiceNameSearchField', () => {
     expect(input.props.placeholder).toContain('service name');
     expect(input.props['aria-labelledby']).toBe('service-label');
     const opts = renderer.root.findAll((x) => x.type === 'button' && x.props.role === 'option');
-    expect(opts.map((o) => o.props.children)).toEqual(['Hair Cut', 'Hair Cutting']);
+    expect(opts.map((o) => o.props.children)).toEqual(['Haircut', 'Hair Colour', 'Hair Spa']);
     expect(opts[0].props.style.color).toBe('var(--bc-ink)');
     await act(async () => {
       input.props.onKeyDown({ key: 'Enter', preventDefault: jest.fn() });
     });
-    expect(onChange).toHaveBeenCalledWith('Hair Cut');
-    expect(onSubmit).toHaveBeenCalledWith('Hair Cut');
+    expect(onChange).toHaveBeenCalledWith('Haircut');
+    expect(onSubmit).toHaveBeenCalledWith('Haircut');
   });
 
   it('does not query before two letters are entered', async () => {

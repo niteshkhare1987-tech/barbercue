@@ -1,5 +1,7 @@
 import {
+  SERVICE_NAME_GROUPS,
   expandServiceNameSearch,
+  mergeServiceSuggestions,
   normalizeServiceText,
   resolveServiceNameGroup,
   serviceNameMatches,
@@ -94,5 +96,20 @@ describe('service name search', () => {
     expect(expandServiceNameSearch('Saree Draping').match).toContain('Saree Draping');
     expect(matches('Saree Draping', 'Saree Draping')).toBe(true);
     expect(matches('Saree Draping', 'Bridal Makeup')).toBe(false);
+  });
+
+  it('merges equivalent suggestion names into one label, keeping other names as they are', () => {
+    expect(
+      mergeServiceSuggestions([
+        'Gents Haircut', 'Hair Colour', 'Hair Cutting', 'Hair Nourishment Spa', 'Hair Spa', 'Haircut',
+        'Head Shave', 'Saree Draping', 'saree draping',
+      ]),
+    ).toEqual(['Haircut', 'Hair Colour', 'Hair Spa', 'Head Shave', 'Saree Draping']);
+  });
+
+  it('every group label resolves back to its own group, so picking it searches the same salons', () => {
+    for (const group of SERVICE_NAME_GROUPS) {
+      expect([group.label, resolveServiceNameGroup(group.label)?.id]).toEqual([group.label, group.id]);
+    }
   });
 });

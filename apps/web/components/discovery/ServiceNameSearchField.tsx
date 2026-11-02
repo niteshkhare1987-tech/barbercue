@@ -1,22 +1,25 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { DISCOVERY_PATHS } from "@barbercue/shared";
+import { DISCOVERY_PATHS, mergeServiceSuggestions } from "@barbercue/shared";
 import type { ServiceSuggestionDto } from "@barbercue/shared";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 const SEARCH_DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 const RESULT_LIMIT = 8;
+// Fetched wider than shown, because equivalent names ("Haircut", "Hair Cutting") merge into one line.
+const FETCH_LIMIT = 50;
 
 type SuggestState =
   | { kind: "idle" }
   | { kind: "loading"; query: string }
-  | { kind: "results"; query: string; services: ServiceSuggestionDto[] }
+  | { kind: "results"; query: string; services: string[] }
   | { kind: "failed"; query: string };
 
 /**
- * Public Service NAME picker for /search. Suggests real active service names; the serviceName
+ * Public Service NAME picker for /search. Suggests real active service names, with equivalent
+ * names merged into one line (mergeServiceSuggestions); the serviceName
  * filter then keeps salons offering that service or an equivalent name (see
  * expandServiceNameSearch). Enter without selecting still searches the typed text.
  */
@@ -56,7 +59,7 @@ export function ServiceNameSearchField({
     const timer = setTimeout(() => {
       const seq = ++requestSeqRef.current;
       setState({ kind: "loading", query: trimmed });
-      const params = new URLSearchParams({ q: trimmed, limit: String(RESULT_LIMIT) });
+      const params = new URLSearchParams({ q: trimmed, limit: String(FETCH_LIMIT) });
       fetch(API_BASE_URL + "/" + DISCOVERY_PATHS.salons + "/" + DISCOVERY_PATHS.serviceSuggestions + "?" + params.toString())
         .then((response) => {
           if (!response.ok) throw new Error("Service suggestions unavailable");
@@ -65,7 +68,11 @@ export function ServiceNameSearchField({
         .then((data) => {
           if (cancelled || seq !== requestSeqRef.current) return;
           setActiveIndex(0);
-          setState({ kind: "results", query: trimmed, services: data });
+          setState({
+            kind: "results",
+            query: trimmed,
+            services: mergeServiceSuggestions(data.map((service) => service.name)).slice(0, RESULT_LIMIT),
+          });
         })
         .catch(() => {
           if (cancelled || seq !== requestSeqRef.current) return;
@@ -81,10 +88,10 @@ export function ServiceNameSearchField({
   const services = !tooShort && state.kind === "results" && state.query === trimmed ? state.services : [];
   const expanded = open && services.length > 0;
 
-  function choose(service: ServiceSuggestionDto) {
+  function choose(name: string) {
     setOpen(false);
-    onChange(service.name);
-    onSubmit(service.name);
+    onChange(name);
+    onSubmit(name);
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -149,8 +156,8 @@ export function ServiceNameSearchField({
             overflowY: "auto",
           }}
         >
-          {services.map((service, index) => (
-            <li key={service.name} role="presentation">
+          {services.map((name, index) => (
+            <li key={name} role="presentation">
               <button
                 type="button"
                 id={listboxId + "-" + index}
@@ -158,7 +165,7 @@ export function ServiceNameSearchField({
                 aria-selected={index === activeIndex}
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => choose(service)}
+                onClick={() => choose(name)}
                 style={{
                   width: "100%",
                   display: "block",
@@ -174,7 +181,7 @@ export function ServiceNameSearchField({
                   fontWeight: 600,
                 }}
               >
-                {service.name}
+                {name}
               </button>
             </li>
           ))}
