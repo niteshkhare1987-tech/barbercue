@@ -465,6 +465,8 @@ model User {
   globalProductsCreated  GlobalProduct[] @relation("GlobalProductCreator")
   globalProductsReviewed GlobalProduct[] @relation("GlobalProductReviewer")
   serviceUsagesRecorded  ServiceUsage[]  @relation("ServiceUsageRecordedBy")
+  supplierMemberships    SupplierMember[]
+  marketOrdersPlaced     MarketOrder[]   @relation("MarketOrderBuyer")
   serviceUsagesReversed  ServiceUsage[]  @relation("ServiceUsageReversedBy")
   otpRequests                   OtpRequest[]             @relation("OtpRequestSubject")
   premiumSubscriptions          CustomerSubscription[]
@@ -860,6 +862,7 @@ model City {
   @@index([countryId])
   @@index([regionId])
   @@map("cities")
+  marketplaceSuppliers MarketplaceSupplier[]
 }
 
 model Locality {
@@ -1025,6 +1028,10 @@ model Salon {
   serviceUsages            ServiceUsage[]
   inventorySettings        InventorySettings?
   inventoryAlerts          InventoryAlert[]
+  purchaseOrders           PurchaseOrder[]
+  marketListings           MarketListing[]
+  marketSales              MarketOrder[]            @relation("MarketOrderSeller")
+  marketPurchases          MarketOrder[]            @relation("MarketOrderBuyerSalon")
   demoWorkspace               OwnerDemoWorkspace?
 
   @@unique([cityId, slug])
@@ -2061,11 +2068,15 @@ model InventorySupplier {
   notes          String?  @db.VarChar(500)
   // Inventory Phase 3: days from ordering to delivery; null = the shop's default lead time.
   leadTimeDays   Int?
+  // Inventory Phase 4: this salon supplier is (now) a FastQue marketplace supplier.
+  marketplaceSupplierId String?
+  marketplaceSupplier   MarketplaceSupplier? @relation(fields: [marketplaceSupplierId], references: [id], onDelete: SetNull)
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 
-  products  InventoryProduct[]
-  movements InventoryMovement[]
+  products       InventoryProduct[]
+  movements      InventoryMovement[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([id, salonId])
   @@unique([salonId, normalizedName])
@@ -2106,6 +2117,8 @@ model InventoryProduct {
   recipeDefaults    ServiceProductRule[]
   serviceUsageItems ServiceUsageItem[]
   alerts            InventoryAlert[]
+  purchaseOrderItems PurchaseOrderItem[]
+  marketListings    MarketListing[]
 
   @@unique([id, salonId])
   @@unique([salonId, sku])
@@ -2191,6 +2204,8 @@ model GlobalProduct {
   barcodes          GlobalProductBarcode[]
   images            GlobalProductImage[]
   inventoryProducts InventoryProduct[]
+  supplierOffers    SupplierOffer[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([verificationStatus, createdAt])
   @@index([normalizedName])
@@ -2792,4 +2807,321 @@ model InventoryAlert {
 
   @@index([salonId, resolvedAt, createdAt])
   @@map("inventory_alerts")
+}
+
+// ---------- Inventory Phases 4–5: B2B and B2C commerce ----------
+
+enum SupplierStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PLACED
+  CONFIRMED
+  DISPATCHED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  REJECTED
+  CANCELLED
+}
+
+enum ListingChannel {
+  SALON
+  CUSTOMER
+}
+
+enum ListingStatus {
+  PENDING_REVIEW
+  ACTIVE
+  PAUSED
+  REJECTED
+  ENDED
+}
+
+enum MarketOrderStatus {
+  PLACED
+  ACCEPTED
+  READY_FOR_PICKUP
+  DISPATCHED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+  RETURN_REQUESTED
+  RETURNED
+  DISPUTED
+}
+
+enum MarketPaymentMethod {
+  PAY_AT_PICKUP
+  UPI_TO_SALON
+  INVOICE
+}
+
+/// A distributor selling to salons on FastQue. Only APPROVED suppliers (by a FastQue admin) can be
+/// seen or ordered from; FastQue never holds their stock.
+model MarketplaceSupplier {
+  id                  String         @id @default(uuid())
+  name                String         @db.VarChar(120)
+  legalName           String?        @db.VarChar(160)
+  gstin               String?        @db.VarChar(15)
+  contactName         String         @db.VarChar(120)
+  phone               String         @db.VarChar(20)
+  email               String         @db.VarChar(254)
+  address             String         @db.VarChar(300)
+  cityId              String
+  city                City           @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  serviceCityIds      String[]
+  defaultLeadTimeDays Int            @default(3)
+  deliveryCharge      Decimal        @default(0) @db.Decimal(10, 2)
+  freeDeliveryAbove   Decimal?       @db.Decimal(10, 2)
+  minimumOrderValue   Decimal?       @db.Decimal(10, 2)
+  status              SupplierStatus @default(PENDING)
+  reviewNote          String?        @db.VarChar(300)
+  reviewedByUserId    String?
+  reviewedAt          DateTime?      @db.Timestamptz(6)
+  createdByUserId     String
+  createdAt           DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(6)
+
+  members            SupplierMember[]
+  offers             SupplierOffer[]
+  purchaseOrders     PurchaseOrder[]
+  salonSupplierLinks InventorySupplier[]
+
+  @@index([status])
+  @@map("marketplace_suppliers")
+}
+
+/// People who can run a supplier's portal (access is checked per request, like salon roles).
+model SupplierMember {
+  id         String              @id @default(uuid())
+  supplierId String
+  supplier   MarketplaceSupplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt  DateTime            @default(now()) @db.Timestamptz(6)
+
+  @@unique([supplierId, userId])
+  @@index([userId])
+  @@map("supplier_members")
+}
+
+/// A supplier's price for one verified catalog product (per piece). availableQuantity null means
+/// the supplier did not share stock — never assumed available.
+model SupplierOffer {
+  id                String              @id @default(uuid())
+  supplierId        String
+  supplier          MarketplaceSupplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  globalProductId   String
+  globalProduct     GlobalProduct       @relation(fields: [globalProductId], references: [id], onDelete: Restrict)
+  supplierSku       String?             @db.VarChar(60)
+  unitPrice         Decimal             @db.Decimal(10, 2)
+  minOrderQuantity  Int                 @default(1)
+  availableQuantity Int?
+  stockUpdatedAt    DateTime            @default(now()) @db.Timestamptz(6)
+  leadTimeDays      Int?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime            @updatedAt @db.Timestamptz(6)
+
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@unique([supplierId, globalProductId])
+  @@index([globalProductId, isActive])
+  @@map("supplier_offers")
+}
+
+/// A salon's order to a marketplace supplier or to one of its own suppliers. Placing it never
+/// changes stock; only goods receipts do (PURCHASE ledger entries).
+model PurchaseOrder {
+  id                    String               @id @default(uuid())
+  salonId               String
+  salon                 Salon                @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  number                String               @db.VarChar(20)
+  marketplaceSupplierId String?
+  marketplaceSupplier   MarketplaceSupplier? @relation(fields: [marketplaceSupplierId], references: [id], onDelete: Restrict)
+  inventorySupplierId   String?
+  inventorySupplier     InventorySupplier?   @relation(fields: [inventorySupplierId, salonId], references: [id, salonId], onDelete: Restrict)
+  status                PurchaseOrderStatus  @default(DRAFT)
+  notes                 String?              @db.VarChar(500)
+  supplierNote          String?              @db.VarChar(300)
+  subtotal              Decimal              @default(0) @db.Decimal(12, 2)
+  deliveryCharge        Decimal              @default(0) @db.Decimal(10, 2)
+  total                 Decimal              @default(0) @db.Decimal(12, 2)
+  currency              String?              @db.VarChar(3)
+  expectedDeliveryDate  DateTime?            @db.Date
+  invoiceUrls           String[]
+  createdByUserId       String
+  placedAt              DateTime?            @db.Timestamptz(6)
+  placedByUserId        String?
+  confirmedAt           DateTime?            @db.Timestamptz(6)
+  dispatchedAt          DateTime?            @db.Timestamptz(6)
+  closedAt              DateTime?            @db.Timestamptz(6)
+  cancelReason          String?              @db.VarChar(300)
+  createdAt             DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime             @updatedAt @db.Timestamptz(6)
+
+  items    PurchaseOrderItem[]
+  receipts GoodsReceipt[]
+
+  @@unique([salonId, number])
+  @@index([marketplaceSupplierId, status])
+  @@index([salonId, status, createdAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id                 String            @id @default(uuid())
+  purchaseOrderId    String
+  purchaseOrder      PurchaseOrder     @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  salonId            String
+  inventoryProductId String?
+  inventoryProduct   InventoryProduct? @relation(fields: [inventoryProductId, salonId], references: [id, salonId], onDelete: Restrict)
+  globalProductId    String?
+  globalProduct      GlobalProduct?    @relation(fields: [globalProductId], references: [id], onDelete: Restrict)
+  supplierOfferId    String?
+  supplierOffer      SupplierOffer?    @relation(fields: [supplierOfferId], references: [id], onDelete: SetNull)
+  name               String            @db.VarChar(160)
+  quantity           Decimal           @db.Decimal(12, 3)
+  unitPrice          Decimal           @db.Decimal(10, 2)
+  receivedQuantity   Decimal           @default(0) @db.Decimal(12, 3)
+  damagedQuantity    Decimal           @default(0) @db.Decimal(12, 3)
+
+  receiptLines GoodsReceiptLine[]
+
+  @@index([purchaseOrderId])
+  @@map("purchase_order_items")
+}
+
+/// One delivery checked in by the salon. Each good line becomes a PURCHASE ledger entry.
+model GoodsReceipt {
+  id               String        @id @default(uuid())
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  salonId          String
+  receivedByUserId String
+  idempotencyKey   String        @db.VarChar(128)
+  note             String?       @db.VarChar(500)
+  receivedAt       DateTime      @default(now()) @db.Timestamptz(6)
+
+  lines GoodsReceiptLine[]
+
+  @@unique([salonId, idempotencyKey])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id                  String            @id @default(uuid())
+  receiptId           String
+  receipt             GoodsReceipt      @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+  purchaseOrderItemId String
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+  quantityReceived    Decimal           @db.Decimal(12, 3)
+  quantityDamaged     Decimal           @default(0) @db.Decimal(12, 3)
+  batchNumber         String?           @db.VarChar(60)
+  expiryDate          DateTime?         @db.Date
+  barcodeVerified     Boolean?
+  discrepancyNote     String?           @db.VarChar(300)
+  movementId          String?           @unique
+
+  @@map("goods_receipt_lines")
+}
+
+/// Stock a salon offers to other salons (SALON) or to customers for pickup (CUSTOMER). Visible only
+/// once a FastQue admin approves it (ACTIVE). Reserved = held by open orders; never oversold.
+model MarketListing {
+  id                 String           @id @default(uuid())
+  salonId            String
+  salon              Salon            @relation(fields: [salonId], references: [id], onDelete: Restrict)
+  inventoryProductId String
+  inventoryProduct   InventoryProduct @relation(fields: [inventoryProductId, salonId], references: [id, salonId], onDelete: Restrict)
+  channel            ListingChannel
+  status             ListingStatus    @default(PENDING_REVIEW)
+  title              String           @db.VarChar(160)
+  unitPrice          Decimal          @db.Decimal(10, 2)
+  quantityListed     Int
+  quantityReserved   Int              @default(0)
+  quantitySold       Int              @default(0)
+  batchNumber        String?          @db.VarChar(60)
+  expiryDate         DateTime?        @db.Date
+  sealed             Boolean          @default(true)
+  photoUrls          String[]
+  invoiceUrl         String?          @db.VarChar(500)
+  provenanceNote     String?          @db.VarChar(300)
+  description        String?          @db.VarChar(500)
+  reviewNote         String?          @db.VarChar(300)
+  reviewedByUserId   String?
+  reviewedAt         DateTime?        @db.Timestamptz(6)
+  createdByUserId    String
+  createdAt          DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime         @updatedAt @db.Timestamptz(6)
+
+  orderItems MarketOrderItem[]
+
+  @@index([channel, status])
+  @@index([salonId, status])
+  @@map("market_listings")
+}
+
+/// An order from a customer (CUSTOMER, pickup at the selling salon) or another salon (SALON).
+model MarketOrder {
+  id             String              @id @default(uuid())
+  number         String              @unique @db.VarChar(20)
+  channel        ListingChannel
+  status         MarketOrderStatus   @default(PLACED)
+  sellerSalonId  String
+  sellerSalon    Salon               @relation("MarketOrderSeller", fields: [sellerSalonId], references: [id], onDelete: Restrict)
+  buyerUserId    String
+  buyerUser      User                @relation("MarketOrderBuyer", fields: [buyerUserId], references: [id], onDelete: Restrict)
+  buyerSalonId   String?
+  buyerSalon     Salon?              @relation("MarketOrderBuyerSalon", fields: [buyerSalonId], references: [id], onDelete: Restrict)
+  total          Decimal             @db.Decimal(12, 2)
+  currency       String?             @db.VarChar(3)
+  paymentMethod  MarketPaymentMethod
+  paidAt         DateTime?           @db.Timestamptz(6)
+  pickupCode     String?             @db.VarChar(6)
+  idempotencyKey String              @db.VarChar(128)
+  note           String?             @db.VarChar(300)
+  expiresAt      DateTime?           @db.Timestamptz(6)
+  acceptedAt     DateTime?           @db.Timestamptz(6)
+  readyAt        DateTime?           @db.Timestamptz(6)
+  dispatchedAt   DateTime?           @db.Timestamptz(6)
+  completedAt    DateTime?           @db.Timestamptz(6)
+  cancelledAt    DateTime?           @db.Timestamptz(6)
+  cancelReason   String?             @db.VarChar(300)
+  returnReason   String?             @db.VarChar(300)
+  disputeReason  String?             @db.VarChar(500)
+  resolutionNote String?             @db.VarChar(300)
+  createdAt      DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @db.Timestamptz(6)
+
+  items MarketOrderItem[]
+
+  @@unique([buyerUserId, idempotencyKey])
+  @@index([sellerSalonId, status, createdAt])
+  @@index([buyerUserId, createdAt])
+  @@index([status, expiresAt])
+  @@map("market_orders")
+}
+
+model MarketOrderItem {
+  id               String        @id @default(uuid())
+  orderId          String
+  order            MarketOrder   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  listingId        String
+  listing          MarketListing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  title            String        @db.VarChar(160)
+  quantity         Int
+  unitPrice        Decimal       @db.Decimal(10, 2)
+  sellerMovementId String?       @unique
+  buyerMovementId  String?       @unique
+  returnMovementId String?       @unique
+
+  @@index([orderId])
+  @@index([listingId])
+  @@map("market_order_items")
 }

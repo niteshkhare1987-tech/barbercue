@@ -25,6 +25,9 @@ export const INVENTORY_SECTIONS: ReadonlyArray<{ path: string; label: string }> 
   { path: "adjustments", label: "Adjustments" },
   { path: "low-stock", label: "Low stock" },
   { path: "predictions", label: "Predictions" },
+  { path: "purchase-orders", label: "Purchase orders" },
+  { path: "sell", label: "Sell stock" },
+  { path: "orders", label: "Orders" },
   { path: "history", label: "Stock history" },
   { path: "reports", label: "Reports" },
 ];

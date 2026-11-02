@@ -27,6 +27,10 @@ const TYPE_LABEL: Record<string, string> = {
   "booking.rescheduled_by_shop": "Appointment time changed by the shop",
   "owner.inventory.reorder": "Time to reorder stock",
   "owner.inventory.expiring": "Stock expiring soon",
+  "owner.marketplace.order": "Marketplace order update",
+  "owner.purchase_order.updated": "Purchase order update",
+  "supplier.purchase_order.placed": "New purchase order",
+  "shop.order.updated": "Your order was updated",
 };
 
 function timeAgo(iso: string): string {

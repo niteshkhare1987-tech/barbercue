@@ -37,6 +37,7 @@ import { SiteMetricsModule } from './site-metrics/site-metrics.module';
 import { OwnerOpsModule } from './owner-ops/owner-ops.module';
 import { SalonDescriptionModule } from './salon-description/salon-description.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { CommerceModule } from './commerce/commerce.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { InventoryModule } from './inventory/inventory.module';
     OwnerOpsModule,
     SalonDescriptionModule,
     InventoryModule,
+    CommerceModule,
     SalonsModule,
     RealtimeModule,
     PremiumModule,

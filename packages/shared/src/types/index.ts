@@ -1412,6 +1412,11 @@ export const NOTIFICATION_TYPES = [
   // (low, predicted to run out, or out) and stock expiring or expired.
   "owner.inventory.reorder",
   "owner.inventory.expiring",
+  // Inventory Phases 4–5 — marketplace and purchasing, in-app only.
+  "owner.marketplace.order",
+  "owner.purchase_order.updated",
+  "supplier.purchase_order.placed",
+  "shop.order.updated",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

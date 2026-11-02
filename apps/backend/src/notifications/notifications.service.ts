@@ -38,6 +38,11 @@ const TYPE_CATEGORY: Record<NotificationType, NotificationCategory> = {
   // Inventory Phase 3 — stock reminders for the owner (no inventory category exists yet).
   'owner.inventory.reorder': NotificationCategory.REMINDERS,
   'owner.inventory.expiring': NotificationCategory.REMINDERS,
+  // Inventory Phases 4–5 — orders are operational updates.
+  'owner.marketplace.order': NotificationCategory.BOOKING_UPDATES,
+  'owner.purchase_order.updated': NotificationCategory.BOOKING_UPDATES,
+  'supplier.purchase_order.placed': NotificationCategory.BOOKING_UPDATES,
+  'shop.order.updated': NotificationCategory.BOOKING_UPDATES,
 };
 
 const ALL_CATEGORIES: NotificationCategory[] = [

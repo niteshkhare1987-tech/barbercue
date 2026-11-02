@@ -104,6 +104,7 @@ export const ADMIN_NAV_ITEMS: ReadonlyArray<AdminNavItem> = [
   { id: "inventory-overview", label: "Inventory Overview", group: "INVENTORY", href: "/dashboard/admin/inventory", status: "live" },
   { id: "product-catalog", label: "Product Catalog", group: "INVENTORY", href: "/dashboard/admin/inventory/catalog", status: "live" },
   { id: "catalog-import", label: "Catalog Import", group: "INVENTORY", href: "/dashboard/admin/inventory/catalog", query: "view=import", status: "live" },
+  { id: "marketplace", label: "Marketplace", group: "INVENTORY", href: "/dashboard/admin/inventory/marketplace", status: "live" },
 
   { id: "quiet-shops", label: "Open, No Bookings", group: "ALERTS", href: STATUS, query: "filter=quiet", status: "live" },
   planned("ALERTS", "inactive-alerts", "Inactive Shop Alerts", "Alert rules, alert records and assignable follow-ups."),

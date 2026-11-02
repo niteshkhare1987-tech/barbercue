@@ -1,0 +1,13 @@
+/* Inventory Phases 4–5: admin marketplace moderation. Colours come from the admin shell. */
+.page { display: grid; gap: 12px; }
+.page h1 { margin: 0; font-size: 1.4rem; }
+.sub { margin: 2px 0 0; font-size: 0.85rem; opacity: 0.75; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar select, .table button { min-height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.tab, .tabActive { min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; cursor: pointer; opacity: 0.8; }
+.tabActive { opacity: 1; font-weight: 700; border-width: 2px; }
+.notice { margin: 0; padding: 8px 12px; border-radius: 8px; background: rgba(46, 160, 90, 0.18); }
+.error { margin: 0; padding: 8px 12px; border-radius: 8px; background: rgba(220, 50, 80, 0.18); }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; }
+.table td { padding: 10px 8px; border-bottom: 1px solid rgba(127, 127, 127, 0.25); vertical-align: top; }

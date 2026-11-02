@@ -2580,6 +2580,10 @@ const enNotificationTypeLabels: NotificationTypeLabels = {
   'booking.rescheduled_by_shop': 'Appointment time changed by the shop',
   'owner.inventory.reorder': 'Time to reorder stock',
   'owner.inventory.expiring': 'Stock expiring soon',
+  'owner.marketplace.order': 'Marketplace order update',
+  'owner.purchase_order.updated': 'Purchase order update',
+  'supplier.purchase_order.placed': 'New purchase order',
+  'shop.order.updated': 'Your order was updated',
 };
 
 const hiNotificationTypeLabels: NotificationTypeLabels = {
@@ -2602,6 +2606,10 @@ const hiNotificationTypeLabels: NotificationTypeLabels = {
   'booking.rescheduled_by_shop': 'दुकान ने अपॉइंटमेंट का समय बदला',
   'owner.inventory.reorder': 'स्टॉक फिर से मंगाने का समय',
   'owner.inventory.expiring': 'स्टॉक जल्द एक्सपायर हो रहा है',
+  'owner.marketplace.order': 'मार्केटप्लेस ऑर्डर अपडेट',
+  'owner.purchase_order.updated': 'खरीद ऑर्डर अपडेट',
+  'supplier.purchase_order.placed': 'नया खरीद ऑर्डर',
+  'shop.order.updated': 'आपका ऑर्डर अपडेट हुआ',
 };
 
 export const NOTIFICATION_TYPE_LABELS: Readonly<Record<Language, NotificationTypeLabels>> = {
