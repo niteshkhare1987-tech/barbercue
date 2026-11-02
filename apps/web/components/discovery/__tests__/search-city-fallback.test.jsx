@@ -14,7 +14,7 @@ jest.mock('next/navigation', () => ({ useRouter: () => ({ push }), useSearchPara
 jest.mock('next/link', () => ({ __esModule: true, default: ({ children, href }) => <a href={href}>{children}</a> }));
 jest.mock('../../../lib/auth-context', () => ({ useAuth: () => ({ user: null, status: 'unauthenticated' }) }));
 jest.mock('../../../lib/api', () => ({ apiFetch: jest.fn(), ApiError: class extends Error {} }));
-jest.mock('../../discovery/ShopNameSearchField', () => ({ ShopNameSearchField: () => null }));
+jest.mock('../../discovery/ServiceNameSearchField', () => ({ ServiceNameSearchField: () => null }));
 jest.mock('../../ui/SalonImage', () => ({ SalonImage: () => null }));
 
 const cities = [

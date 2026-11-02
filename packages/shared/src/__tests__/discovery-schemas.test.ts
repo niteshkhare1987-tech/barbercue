@@ -17,19 +17,19 @@ describe('salonSearchQuerySchema', () => {
     if (result.success) expect(result.data.limit).toBe(20); // coerced from string (real query params are always strings)
   });
 
-  it('accepts a shop name, independently of the existing service filter', () => {
-    const result = salonSearchQuerySchema.safeParse({ shopName: '  Studio 25  ', service: 'haircut', limit: '8' });
+  it('accepts a service name, independently of the existing service filter', () => {
+    const result = salonSearchQuerySchema.safeParse({ serviceName: '  Head Massage  ', service: 'haircut', limit: '8' });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.shopName).toBe('Studio 25');
+      expect(result.data.serviceName).toBe('Head Massage');
       expect(result.data.service).toBe('haircut');
       expect(result.data.limit).toBe(8);
     }
   });
 
-  it('rejects an empty or unbounded shop name', () => {
-    expect(salonSearchQuerySchema.safeParse({ shopName: '   ' }).success).toBe(false);
-    expect(salonSearchQuerySchema.safeParse({ shopName: 'a'.repeat(121) }).success).toBe(false);
+  it('rejects an empty or unbounded service name', () => {
+    expect(salonSearchQuerySchema.safeParse({ serviceName: '   ' }).success).toBe(false);
+    expect(salonSearchQuerySchema.safeParse({ serviceName: 'a'.repeat(121) }).success).toBe(false);
   });
 
   it('rejects a limit above 50', () => {

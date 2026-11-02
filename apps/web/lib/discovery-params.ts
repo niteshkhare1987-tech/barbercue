@@ -14,7 +14,7 @@ import {
 
 /** Every query param the search API understands, forwarded as-is. */
 export const SEARCH_API_PARAMS = [
-  "q", "shopName", "city", "countryCode", "locality", "service", "lat", "lng", "radiusKm",
+  "q", "serviceName", "city", "countryCode", "locality", "service", "lat", "lng", "radiusKm",
   "priceMin", "priceMax", "salonType", "popularService", "sort", "minRating", "openNow", "offersOnly", "maxWaitMinutes",
 ] as const;
 

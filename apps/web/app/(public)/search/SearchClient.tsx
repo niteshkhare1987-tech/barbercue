@@ -20,7 +20,7 @@ import {
   searchApiQuery,
   withParams,
 } from "../../../lib/discovery-params";
-import { ShopNameSearchField } from "../../../components/discovery/ShopNameSearchField";
+import { ServiceNameSearchField } from "../../../components/discovery/ServiceNameSearchField";
 import { Button } from "../../../components/ui/Button";
 import { apiFetch } from "../../../lib/api";
 import { useFavorites } from "../../../lib/favorites";
@@ -35,7 +35,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 export default function SearchClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [q, setQ] = useState(searchParams.get("shopName") ?? "");
+  const [q, setQ] = useState(searchParams.get("serviceName") ?? "");
   const [selectedCity, setSelectedCity] = useState<CitySearchResultDto | null>(null);
   // Every city with at least one active salon (GET cities) — customers pick from where FastQue
   // actually has salons, never from a global catalogue full of cities with no results.
@@ -230,12 +230,12 @@ export default function SearchClient() {
   function handleSubmit(event?: React.FormEvent, explicitService?: string) {
     event?.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
-    const shopName = (explicitService ?? q).trim();
-    // The Shop input is name-only; preserve the separate Service, price and distance filters.
-    // A legacy homepage "q" query must not quietly AND with a new shop-name search.
+    const serviceName = (explicitService ?? q).trim();
+    // The Service input only narrows which salons are shown; preserve the separate popular-service,
+    // price and distance filters. A legacy homepage "q" query must not quietly AND with it.
     params.delete("q");
-    if (shopName) params.set("shopName", shopName);
-    else params.delete("shopName");
+    if (serviceName) params.set("serviceName", serviceName);
+    else params.delete("serviceName");
     if (selectedCity) {
       params.set("city", selectedCity.slug);
       params.set("countryCode", selectedCity.countryCode);
@@ -284,11 +284,11 @@ export default function SearchClient() {
 
         <form className={styles.searchForm} onSubmit={handleSubmit} role="search">
           <div className={styles.field}>
-            <span id="search-q-label">Shop</span>
-            <ShopNameSearchField
+            <span id="search-q-label">Service</span>
+            <ServiceNameSearchField
               value={q}
               onChange={setQ}
-              onSubmit={(shopName) => handleSubmit(undefined, shopName)}
+              onSubmit={(serviceName) => handleSubmit(undefined, serviceName)}
               labelledBy="search-q-label"
             />
           </div>

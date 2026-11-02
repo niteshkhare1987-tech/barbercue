@@ -26,6 +26,7 @@ import {
   type SalonWorkplaceDto,
   type TeamMemberDto,
   SALON_TYPE_FILTER_MATCHES,
+  expandServiceNameSearch,
   popularServiceById,
   type PopularService,
 } from '@barbercue/shared';
@@ -356,10 +357,31 @@ export class SalonsService {
         : { slug: query.city };
     }
     if (query.locality) where.locality = { slug: query.locality };
-    // The visible /search Shop field must match SHOP NAMES only, never service or description.
-    // Keep the legacy q and service filters unchanged for existing links and other clients.
-    if (query.shopName) {
-      where.name = { contains: query.shopName, mode: 'insensitive' };
+    // The visible /search Service field keeps only salons with an active service of that name or an
+    // equivalent one (expandServiceNameSearch: synonyms, plurals, typos, Hinglish). It only decides
+    // which salons stay visible — prices, offers, the price filter and sorts are untouched. Kept in
+    // where.AND so it never collides with `service`'s own where.services key.
+    if (query.serviceName) {
+      const search = expandServiceNameSearch(query.serviceName);
+      where.AND = [
+        {
+          services: {
+            some: {
+              isActive: true,
+              OR: search.match.map((term) => ({
+                name: { contains: term, mode: 'insensitive' as const },
+              })),
+              ...(search.exclude.length
+                ? {
+                    NOT: search.exclude.map((term) => ({
+                      name: { contains: term, mode: 'insensitive' as const },
+                    })),
+                  }
+                : {}),
+            },
+          },
+        },
+      ];
     }
 
     // Part 8/9 correction: a price filter must be satisfied by the SAME service that matched the

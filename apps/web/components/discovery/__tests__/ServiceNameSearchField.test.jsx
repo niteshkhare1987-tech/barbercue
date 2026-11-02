@@ -1,8 +1,8 @@
 import React, { act } from 'react';
 import TestRenderer from 'react-test-renderer';
-import { ShopNameSearchField } from '../ShopNameSearchField';
+import { ServiceNameSearchField } from '../ServiceNameSearchField';
 
-describe('ShopNameSearchField', () => {
+describe('ServiceNameSearchField', () => {
   const savedFetch = global.fetch;
 
   afterEach(() => {
@@ -10,24 +10,21 @@ describe('ShopNameSearchField', () => {
     global.fetch = savedFetch;
   });
 
-  it('fetches only real shop-name matches and submits the selected shop on Enter', async () => {
+  it('suggests real service names and submits the selected service on Enter', async () => {
     jest.useFakeTimers();
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        items: [
-          { id: 's1', name: 'Studio 25 Salons' },
-          { id: 's2', name: 'Studio 44 Salon' },
-        ],
-        nextCursor: null,
-      }),
+      json: async () => [
+        { name: 'Hair Cut', category: 'Hair' },
+        { name: 'Hair Cutting', category: null },
+      ],
     });
     const onChange = jest.fn();
     const onSubmit = jest.fn();
     let renderer;
     await act(async () => {
       renderer = TestRenderer.create(
-        <ShopNameSearchField value="Studio" onChange={onChange} onSubmit={onSubmit} labelledBy="shop-label" />,
+        <ServiceNameSearchField value="Hair" onChange={onChange} onSubmit={onSubmit} labelledBy="service-label" />,
       );
     });
     await act(async () => {
@@ -39,19 +36,21 @@ describe('ShopNameSearchField', () => {
       await Promise.resolve();
     });
     const calledUrl = global.fetch.mock.calls[0][0];
-    expect(new URL(calledUrl, 'http://localhost').searchParams.get('shopName')).toBe('Studio');
-    expect(new URL(calledUrl, 'http://localhost').searchParams.has('service')).toBe(false);
+    const url = new URL(calledUrl, 'http://localhost');
+    expect(url.pathname).toMatch(/\/salons\/service-suggestions$/);
+    expect(url.searchParams.get('q')).toBe('Hair');
+    expect(url.searchParams.has('shopName')).toBe(false);
     const input = renderer.root.findByType('input');
-    expect(input.props.placeholder).toContain('shop name');
-    expect(input.props['aria-labelledby']).toBe('shop-label');
+    expect(input.props.placeholder).toContain('service name');
+    expect(input.props['aria-labelledby']).toBe('service-label');
     const opts = renderer.root.findAll((x) => x.type === 'button' && x.props.role === 'option');
-    expect(opts.map((o) => o.props.children)).toEqual(['Studio 25 Salons', 'Studio 44 Salon']);
+    expect(opts.map((o) => o.props.children)).toEqual(['Hair Cut', 'Hair Cutting']);
     expect(opts[0].props.style.color).toBe('var(--bc-ink)');
     await act(async () => {
       input.props.onKeyDown({ key: 'Enter', preventDefault: jest.fn() });
     });
-    expect(onChange).toHaveBeenCalledWith('Studio 25 Salons');
-    expect(onSubmit).toHaveBeenCalledWith('Studio 25 Salons');
+    expect(onChange).toHaveBeenCalledWith('Hair Cut');
+    expect(onSubmit).toHaveBeenCalledWith('Hair Cut');
   });
 
   it('does not query before two letters are entered', async () => {
@@ -60,7 +59,7 @@ describe('ShopNameSearchField', () => {
     let renderer;
     await act(async () => {
       renderer = TestRenderer.create(
-        <ShopNameSearchField value="S" onChange={jest.fn()} onSubmit={jest.fn()} labelledBy="shop-label" />,
+        <ServiceNameSearchField value="H" onChange={jest.fn()} onSubmit={jest.fn()} labelledBy="service-label" />,
       );
     });
     await act(async () => {

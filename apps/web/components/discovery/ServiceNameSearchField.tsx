@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { DISCOVERY_PATHS } from "@barbercue/shared";
-import type { PaginatedResult, SalonListItemDto } from "@barbercue/shared";
+import type { ServiceSuggestionDto } from "@barbercue/shared";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 const SEARCH_DEBOUNCE_MS = 300;
@@ -12,15 +12,15 @@ const RESULT_LIMIT = 8;
 type SuggestState =
   | { kind: "idle" }
   | { kind: "loading"; query: string }
-  | { kind: "results"; query: string; shops: SalonListItemDto[] }
+  | { kind: "results"; query: string; services: ServiceSuggestionDto[] }
   | { kind: "failed"; query: string };
 
 /**
- * Public Shop NAME picker for /search. The dedicated shopName filter only matches
- * active salons by name, not a service name or the salon description (unlike q).
- * Enter without selecting still searches the typed name through the same endpoint.
+ * Public Service NAME picker for /search. Suggests real active service names; the serviceName
+ * filter then keeps salons offering that service or an equivalent name (see
+ * expandServiceNameSearch). Enter without selecting still searches the typed text.
  */
-export function ShopNameSearchField({
+export function ServiceNameSearchField({
   value,
   onChange,
   onSubmit,
@@ -28,7 +28,7 @@ export function ShopNameSearchField({
 }: {
   value: string;
   onChange: (value: string) => void;
-  onSubmit: (shopName?: string) => void;
+  onSubmit: (serviceName?: string) => void;
   labelledBy: string;
 }) {
   const listboxId = useId();
@@ -56,16 +56,16 @@ export function ShopNameSearchField({
     const timer = setTimeout(() => {
       const seq = ++requestSeqRef.current;
       setState({ kind: "loading", query: trimmed });
-      const params = new URLSearchParams({ shopName: trimmed, limit: String(RESULT_LIMIT) });
-      fetch(API_BASE_URL + "/" + DISCOVERY_PATHS.salons + "?" + params.toString())
+      const params = new URLSearchParams({ q: trimmed, limit: String(RESULT_LIMIT) });
+      fetch(API_BASE_URL + "/" + DISCOVERY_PATHS.salons + "/" + DISCOVERY_PATHS.serviceSuggestions + "?" + params.toString())
         .then((response) => {
-          if (!response.ok) throw new Error("Shop suggestions unavailable");
-          return response.json() as Promise<PaginatedResult<SalonListItemDto>>;
+          if (!response.ok) throw new Error("Service suggestions unavailable");
+          return response.json() as Promise<ServiceSuggestionDto[]>;
         })
         .then((data) => {
           if (cancelled || seq !== requestSeqRef.current) return;
           setActiveIndex(0);
-          setState({ kind: "results", query: trimmed, shops: data.items });
+          setState({ kind: "results", query: trimmed, services: data });
         })
         .catch(() => {
           if (cancelled || seq !== requestSeqRef.current) return;
@@ -78,13 +78,13 @@ export function ShopNameSearchField({
     };
   }, [trimmed, tooShort, open]);
 
-  const shops = !tooShort && state.kind === "results" && state.query === trimmed ? state.shops : [];
-  const expanded = open && shops.length > 0;
+  const services = !tooShort && state.kind === "results" && state.query === trimmed ? state.services : [];
+  const expanded = open && services.length > 0;
 
-  function choose(shop: SalonListItemDto) {
+  function choose(service: ServiceSuggestionDto) {
     setOpen(false);
-    onChange(shop.name);
-    onSubmit(shop.name);
+    onChange(service.name);
+    onSubmit(service.name);
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -93,14 +93,14 @@ export function ShopNameSearchField({
       setOpen(false);
     } else if (expanded && event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((i) => (i + 1) % shops.length);
+      setActiveIndex((i) => (i + 1) % services.length);
     } else if (expanded && event.key === "ArrowUp") {
       event.preventDefault();
-      setActiveIndex((i) => (i - 1 + shops.length) % shops.length);
+      setActiveIndex((i) => (i - 1 + services.length) % services.length);
     } else if (expanded && event.key === "Enter") {
       // Prevent the enclosing search form submitting a different free-text query.
       event.preventDefault();
-      choose(shops[activeIndex] ?? shops[0]);
+      choose(services[activeIndex] ?? services[0]);
     }
   }
 
@@ -111,7 +111,7 @@ export function ShopNameSearchField({
         type="search"
         value={value}
         autoComplete="off"
-        placeholder="Type a shop name…"
+        placeholder="Type a service name…"
         aria-labelledby={labelledBy}
         role="combobox"
         aria-autocomplete="list"
@@ -131,7 +131,7 @@ export function ShopNameSearchField({
         <ul
           id={listboxId}
           role="listbox"
-          aria-label="Matching shops"
+          aria-label="Matching services"
           style={{
             position: "absolute",
             zIndex: 30,
@@ -149,8 +149,8 @@ export function ShopNameSearchField({
             overflowY: "auto",
           }}
         >
-          {shops.map((shop, index) => (
-            <li key={shop.id} role="presentation">
+          {services.map((service, index) => (
+            <li key={service.name} role="presentation">
               <button
                 type="button"
                 id={listboxId + "-" + index}
@@ -158,7 +158,7 @@ export function ShopNameSearchField({
                 aria-selected={index === activeIndex}
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => choose(shop)}
+                onClick={() => choose(service)}
                 style={{
                   width: "100%",
                   display: "block",
@@ -174,24 +174,24 @@ export function ShopNameSearchField({
                   fontWeight: 600,
                 }}
               >
-                {shop.name}
+                {service.name}
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      {open && !tooShort && state.kind === "results" && state.query === trimmed && shops.length === 0 && (
+      {open && !tooShort && state.kind === "results" && state.query === trimmed && services.length === 0 && (
         <p style={{ fontSize: 13, color: hintColor, marginTop: 6 }}>
-          No active shops match this name. Try a different spelling.
+          No exact service name matches. Find salons will still look for similar names.
         </p>
       )}
       {open && !tooShort && state.kind === "loading" && state.query === trimmed && (
-        <p style={{ fontSize: 13, color: hintColor, marginTop: 6 }}>Searching shops…</p>
+        <p style={{ fontSize: 13, color: hintColor, marginTop: 6 }}>Searching services…</p>
       )}
       {open && !tooShort && state.kind === "failed" && state.query === trimmed && (
         <p role="alert" style={{ fontSize: 13, color: "var(--fq-orange, #ff7a3d)", marginTop: 6 }}>
-          Could not load shop suggestions. You can still try Find shops.
+          Could not load service suggestions. You can still try Find salons.
         </p>
       )}
     </div>

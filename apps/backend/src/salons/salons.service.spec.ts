@@ -262,27 +262,47 @@ describe('SalonsService', () => {
       expect(where.city).toEqual({ slug: 'bengaluru' });
     });
 
-    it('searches shop names case-insensitively without matching services or descriptions', async () => {
+    it('keeps only salons offering the searched service or an equivalent name', async () => {
       prisma.salon.findMany.mockResolvedValue([]);
-      await service.search({ shopName: 'Studio', limit: 8 });
+      await service.search({ serviceName: 'Hair Cutting', limit: 8 });
       const { where } = prisma.salon.findMany.mock.calls[0][0] as {
-        where: { status: string; name?: unknown; OR?: unknown; services?: unknown };
+        where: { status: string; name?: unknown; OR?: unknown; services?: unknown; AND?: unknown };
       };
       expect(where.status).toBe('ACTIVE');
-      expect(where.name).toEqual({ contains: 'Studio', mode: 'insensitive' });
+      expect(where.name).toBeUndefined();
       expect(where.OR).toBeUndefined();
       expect(where.services).toBeUndefined();
+      const [condition] = where.AND as {
+        services: { some: { isActive: boolean; OR: { name: unknown }[]; NOT?: unknown } };
+      }[];
+      expect(condition.services.some.isActive).toBe(true);
+      const names = condition.services.some.OR.map((c) => c.name);
+      expect(names).toContainEqual({ contains: 'haircut', mode: 'insensitive' });
+      expect(names).toContainEqual({ contains: 'hair trim', mode: 'insensitive' });
+      expect(names).toContainEqual({ contains: 'Hair Cutting', mode: 'insensitive' });
+      expect(condition.services.some.NOT).toBeUndefined();
     });
 
-    it('combines shop-name and service filters without broadening the name match', async () => {
+    it('excludes service names that are not the searched service (Head Shave is not a Shave)', async () => {
       prisma.salon.findMany.mockResolvedValue([]);
-      await service.search({ shopName: 'Glamourous', service: 'haircut', city: 'patna' });
+      await service.search({ serviceName: 'shaving' });
+      const { where } = prisma.salon.findMany.mock.calls[0][0] as { where: { AND?: unknown } };
+      const [condition] = where.AND as { services: { some: { NOT: { name: unknown }[] } } }[];
+      expect(condition.services.some.NOT).toContainEqual({ name: { contains: 'head shave', mode: 'insensitive' } });
+    });
+
+    it('combines the service-name filter with the existing service, city and price filters unchanged', async () => {
+      prisma.salon.findMany.mockResolvedValue([]);
+      await service.search({ serviceName: 'champi', service: 'haircut', city: 'patna', priceMax: 300 });
       const { where } = prisma.salon.findMany.mock.calls[0][0] as {
-        where: { name?: unknown; services?: unknown; city?: unknown };
+        where: { name?: unknown; services?: unknown; city?: unknown; AND?: unknown };
       };
-      expect(where.name).toEqual({ contains: 'Glamourous', mode: 'insensitive' });
+      expect(where.name).toBeUndefined();
       expect(where.city).toEqual({ slug: 'patna' });
-      expect(where.services).toMatchObject({ some: { isActive: true } });
+      // The existing `service` filter keeps its own same-service price rule.
+      expect(where.services).toMatchObject({ some: { isActive: true, AND: [expect.anything(), { price: { lte: 300 } }] } });
+      const [condition] = where.AND as { services: { some: { OR: { name: unknown }[] } } }[];
+      expect(condition.services.some.OR).toContainEqual({ name: { contains: 'head massage', mode: 'insensitive' } });
     });
 
     // Issue #13 Mission D: the "Shop or service" field previously only matched salon
