@@ -53,6 +53,8 @@ import {
   type ShopRescheduleBookingInput,
   type StaffAccessChangeInput,
   type VoidInvoiceInput,
+  customerInvoiceListQuerySchema,
+  type CustomerInvoiceListQuery,
 } from '@barbercue/shared';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -558,15 +560,19 @@ export class CustomerInvoicesController {
   constructor(private readonly invoices: InvoicesService) {}
 
   @Get()
+  @Header('Cache-Control', 'private, no-store')
   list(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('cursor') cursor?: string,
+    @Query(new ZodValidationPipe(customerInvoiceListQuerySchema))
+    query: CustomerInvoiceListQuery,
     @Query('limit') limit?: string,
   ) {
+    const { cursor, from, to, salonId, q } = query;
     return this.invoices.listMine(
       user.id,
       cursor,
       limit ? Number(limit) : undefined,
+      { from, to, salonId, q },
     );
   }
 

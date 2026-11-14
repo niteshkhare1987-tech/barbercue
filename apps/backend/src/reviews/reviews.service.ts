@@ -3,6 +3,8 @@ import {
   BookingStatus,
   ReviewErrorCode,
   type CreateReviewInput,
+  type CustomerReviewDto,
+  type PaginatedResult,
   type ReviewDetailDto,
   type UpdateReviewInput,
 } from '@barbercue/shared';
@@ -19,6 +21,58 @@ import { AppException } from '../common/exceptions/app.exception';
 @Injectable()
 export class ReviewsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * The customer's own reviews, newest first. Scoped by customerId in the WHERE, so another
+   * account's reviews can never be listed. Cursor must be a review id from a previous page.
+   */
+  async listMine(
+    customerId: string,
+    cursor: string | undefined,
+    limit = 20,
+  ): Promise<PaginatedResult<CustomerReviewDto>> {
+    const validCursor =
+      cursor && /^[0-9a-f-]{36}$/i.test(cursor) ? cursor : undefined;
+    const rows = await this.prisma.review.findMany({
+      where: { customerId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(validCursor ? { cursor: { id: validCursor }, skip: 1 } : {}),
+      include: {
+        salon: {
+          select: {
+            name: true,
+            slug: true,
+            city: { select: { slug: true, countryCode: true } },
+          },
+        },
+        booking: {
+          select: { slotStart: true, service: { select: { name: true } } },
+        },
+      },
+    });
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    return {
+      items: page.map((r) => ({
+        id: r.id,
+        bookingId: r.bookingId,
+        salonId: r.salonId,
+        salonName: r.salon.name,
+        salonSlug: r.salon.slug,
+        citySlug: r.salon.city.slug,
+        countryCode: r.salon.city.countryCode,
+        serviceName: r.booking.service.name,
+        visitDate: r.booking.slotStart.toISOString(),
+        rating: r.rating,
+        comment: r.comment,
+        ownerResponse: r.ownerResponse,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      })),
+      nextCursor: hasMore ? page[page.length - 1].id : null,
+    };
+  }
 
   async create(customerId: string, input: CreateReviewInput): Promise<ReviewDetailDto> {
     const booking = await this.prisma.booking.findUnique({

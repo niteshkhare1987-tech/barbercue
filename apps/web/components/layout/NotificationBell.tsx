@@ -9,7 +9,7 @@ import styles from "./notification-bell.module.css";
 
 const POLL_INTERVAL_MS = 60_000;
 
-const TYPE_LABEL: Record<string, string> = {
+export const TYPE_LABEL: Record<string, string> = {
   "booking.confirmed": "Booking confirmed",
   "booking.cancelled": "Booking cancelled",
   "booking.no_show": "Booking marked as no-show",
@@ -29,7 +29,7 @@ const TYPE_LABEL: Record<string, string> = {
   "owner.inventory.expiring": "Stock expiring soon",
 };
 
-function timeAgo(iso: string): string {
+export function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(ms / 60_000);
   if (mins < 1) return "just now";

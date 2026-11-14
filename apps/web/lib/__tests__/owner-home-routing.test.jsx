@@ -128,6 +128,6 @@ describe("workspace landing for owners and barbers", () => {
     rememberLastShop("u1", "shop-9");
     expect(workspaceLandingPath({ id: "a", roles: [Role.PLATFORM_ADMIN] })).toBe("/dashboard/admin");
     expect(workspaceLandingPath({ id: "e", roles: [Role.FIELD_EXECUTIVE] })).toBe("/employee");
-    expect(workspaceLandingPath({ id: "c", roles: [Role.CUSTOMER] })).toBe("/account/bookings");
+    expect(workspaceLandingPath({ id: "c", roles: [Role.CUSTOMER] })).toBe("/account");
   });
 });

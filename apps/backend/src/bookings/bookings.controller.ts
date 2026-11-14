@@ -19,6 +19,8 @@ import {
   type AuthenticatedUser,
   type CreateBookingInput,
   type RescheduleBookingInput,
+  customerBookingListQuerySchema,
+  type CustomerBookingListQuery,
 } from '@barbercue/shared';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -64,9 +66,16 @@ export class BookingsController {
   @Get(BOOKING_PATHS.mine)
   listMine(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('cursor') cursor?: string,
+    @Query(new ZodValidationPipe(customerBookingListQuerySchema))
+    query: CustomerBookingListQuery,
   ) {
-    return this.bookingsService.listMine(user.id, cursor, MINE_PAGE_LIMIT);
+    const { cursor, ...filters } = query;
+    return this.bookingsService.listMine(
+      user.id,
+      cursor,
+      MINE_PAGE_LIMIT,
+      filters,
+    );
   }
 
   @Get(':id')

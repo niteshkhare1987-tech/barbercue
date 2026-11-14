@@ -11,6 +11,8 @@ import { CountriesService } from './countries.service';
 import { SalonsService } from './salons.service';
 import { FavoritesController } from './favorites.controller';
 import { FavoritesService } from './favorites.service';
+import { RecentlyViewedController } from './recently-viewed.controller';
+import { RecentlyViewedService } from './recently-viewed.service';
 
 // AuthModule provides TokenService — SalonsService.registerSalon uses it to mint a fresh
 // STAFF-audience session the instant a customer becomes a shop owner (see that method's own doc
@@ -23,6 +25,7 @@ import { FavoritesService } from './favorites.service';
     SalonsController,
     CustomerAssistantSearchController,
     FavoritesController,
+    RecentlyViewedController,
   ],
   providers: [
     CitiesService,
@@ -30,6 +33,7 @@ import { FavoritesService } from './favorites.service';
     SalonsService,
     CustomerAssistantSearchService,
     FavoritesService,
+    RecentlyViewedService,
   ],
   exports: [CustomerAssistantSearchService, FavoritesService],
 })

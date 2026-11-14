@@ -35,6 +35,8 @@ import {
   type OutstandingBalanceDetailsDto,
   type PaginatedResult,
   type RescheduleBookingInput,
+  dayRangeBounds,
+  type CustomerBookingListQuery,
 } from '@barbercue/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppException } from '../common/exceptions/app.exception';
@@ -787,10 +789,22 @@ export class BookingsService {
     customerId: string,
     cursor: string | undefined,
     limit = DEFAULT_PAGE_SIZE,
+    filters: Omit<CustomerBookingListQuery, 'cursor'> = {},
   ): Promise<PaginatedResult<BookingDetailDto>> {
+    // Customer dashboard filters — all optional; with none, this is exactly the original query.
+    // customerId always stays in the WHERE, so filters can only ever narrow the caller's own rows.
+    const slotStart = dayRangeBounds(filters.from, filters.to);
     const bookings = await this.prisma.booking.findMany({
-      where: { customerId },
-      orderBy: { slotStart: 'desc' },
+      where: {
+        customerId,
+        ...(slotStart.gte || slotStart.lt ? { slotStart } : {}),
+        ...(filters.status ? { status: { in: filters.status } } : {}),
+        ...(filters.salonId ? { salonId: filters.salonId } : {}),
+      },
+      orderBy:
+        filters.sort === 'oldest'
+          ? [{ slotStart: 'asc' }, { id: 'asc' }]
+          : { slotStart: 'desc' },
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: bookingDetailInclude,

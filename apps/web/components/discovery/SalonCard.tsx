@@ -3,6 +3,7 @@ import type { SalonListItemDto } from "@barbercue/shared";
 import { formatDistance, formatMoney, SALON_TYPE_LABELS, SHOP_CLOSED_TODAY_MESSAGE, VERIFICATION_BADGE_CAPTION } from "@barbercue/shared";
 import { SalonImage } from "../ui/SalonImage";
 import { FavoriteButton } from "./FavoriteButton";
+import { ShareSalonButton } from "../customer-dashboard/ShareSalonButton";
 import styles from "./salon-card.module.css";
 
 export function SalonCard({ salon, styleName }: { salon: SalonListItemDto; styleName?: string }) {
@@ -30,6 +31,7 @@ export function SalonCard({ salon, styleName }: { salon: SalonListItemDto; style
           />
         </Link>
         <FavoriteButton salonId={salon.id} salonName={salon.name} />
+        <ShareSalonButton salon={salon} />
       </div>
 
       <div className={styles.body}>

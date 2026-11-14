@@ -56,6 +56,7 @@ describe('AuthService', () => {
     otpRequest: { deleteMany: jest.Mock };
     appleAuthNonce: { create: jest.Mock; deleteMany: jest.Mock };
     pushDevice: { deleteMany: jest.Mock };
+    customerRecentSalonView: { deleteMany: jest.Mock };
     notificationPreference: { deleteMany: jest.Mock };
     notification: { deleteMany: jest.Mock };
     queueEntry: { updateMany: jest.Mock };
@@ -138,6 +139,7 @@ describe('AuthService', () => {
       otpRequest: { deleteMany: jest.fn() },
       appleAuthNonce: { create: jest.fn(), deleteMany: jest.fn() },
       pushDevice: { deleteMany: jest.fn() },
+      customerRecentSalonView: { deleteMany: jest.fn() },
       notificationPreference: { deleteMany: jest.fn() },
       notification: { deleteMany: jest.fn() },
       queueEntry: { updateMany: jest.fn() },

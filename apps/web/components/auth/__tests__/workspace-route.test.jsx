@@ -23,7 +23,7 @@ describe("internal admin workspace routing", () => {
   test("keeps customer-only users in the customer account", () => {
     const user = { roles: [Role.CUSTOMER] };
 
-    expect(workspaceLandingPath(user)).toBe("/account/bookings");
+    expect(workspaceLandingPath(user)).toBe("/account");
     expect(isWorkspaceUser(user)).toBe(false);
     expect(workspaceNavigationLabel(user)).toBe("My account");
   });

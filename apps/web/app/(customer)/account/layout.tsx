@@ -1,53 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Role } from "@barbercue/shared";
 import { RequireRole } from "../../../components/auth/RequireRole";
 import { CustomerShell } from "../../../components/layout/CustomerShell";
 import { CustomerActionAssistant } from "../../../components/assistant/CustomerActionAssistant";
-import styles from "./account-shell.module.css";
+import { DashboardShell } from "../../../components/customer-dashboard/DashboardShell";
 
-const ACCOUNT_LINKS = [
-  { href: "/account/bookings", label: "Overview" },
-  { href: "/account/favorites", label: "Favorites" },
-  { href: "/account/invoices", label: "Invoices" },
-  { href: "/account/credits", label: "FastQue Credits" },
-  { href: "/account/profile", label: "Profile & security" },
-  { href: "/account/premium", label: "Premium" },
-] as const;
-
+// Customer dashboard (docs/customer-dashboard/PROGRESS.md). Every /account page is signed-in
+// customers only; guests keep full public discovery at /search and the salon pages.
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
   return (
     <RequireRole roles={[Role.CUSTOMER]} redirectTo="/login">
       <CustomerShell>
-        <main className={styles.main}>
-          <nav className={styles.accountNav} aria-label="Customer account">
-            <div className={styles.accountLinks}>
-              {ACCOUNT_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={styles.accountLink}
-                  aria-current={pathname === link.href ? "page" : undefined}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-            <div className={styles.secondaryLinks}>
-              <Link href="/owner/login" className={styles.ownerDashboardLink}>
-                Owner Dashboard <span aria-hidden="true">→</span>
-              </Link>
-              <Link href="/style-advisor" className={styles.styleAdvisorLink}>
-                AI Style Advisor <span aria-hidden="true">→</span>
-              </Link>
-            </div>
-          </nav>
-          <div className={styles.content}>{children}</div>
-        </main>
+        <DashboardShell>{children}</DashboardShell>
         <CustomerActionAssistant />
       </CustomerShell>
     </RequireRole>

@@ -958,6 +958,40 @@ describe('BookingsService', () => {
       expect(result.items).toHaveLength(2);
       expect(result.nextCursor).toBe('b2');
     });
+
+    it('applies dashboard filters while keeping the caller scope', async () => {
+      prisma.booking.findMany.mockResolvedValue([]);
+      await service.listMine('c1', undefined, 2, {
+        from: '2026-11-01',
+        to: '2026-11-07',
+        status: ['COMPLETED'],
+        sort: 'oldest',
+      });
+      const call = prisma.booking.findMany.mock.calls[0][0] as {
+        where: unknown;
+        orderBy: unknown;
+      };
+      expect(call.where).toEqual({
+        customerId: 'c1',
+        slotStart: {
+          gte: new Date('2026-11-01T00:00:00.000Z'),
+          lt: new Date('2026-11-08T00:00:00.000Z'),
+        },
+        status: { in: ['COMPLETED'] },
+      });
+      expect(call.orderBy).toEqual([{ slotStart: 'asc' }, { id: 'asc' }]);
+    });
+
+    it('is unchanged without filters', async () => {
+      prisma.booking.findMany.mockResolvedValue([]);
+      await service.listMine('c1', undefined, 2);
+      const call = prisma.booking.findMany.mock.calls[0][0] as {
+        where: unknown;
+        orderBy: unknown;
+      };
+      expect(call.where).toEqual({ customerId: 'c1' });
+      expect(call.orderBy).toEqual({ slotStart: 'desc' });
+    });
   });
 
   describe('getOne', () => {

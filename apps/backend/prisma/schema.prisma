@@ -468,6 +468,7 @@ model User {
   ledgerEntries                 CustomerLedgerEntry[]
   auditLogs                     AuditLog[]
   favoriteSalons                CustomerFavorite[]
+  recentSalonViews              CustomerRecentSalonView[]
   inventoryMovements            InventoryMovement[]
   globalProductsCreated  GlobalProduct[] @relation("GlobalProductCreator")
   globalProductsReviewed GlobalProduct[] @relation("GlobalProductReviewer")
@@ -1023,6 +1024,7 @@ model Salon {
   // FastQue internal field CRM attribution — at most one employee lead may claim a registered shop.
   crmLeadAttribution          EmployeeCrmLead?             @relation("CrmLeadOnboardedSalon")
   favoritedBy                 CustomerFavorite[]
+  recentViews            CustomerRecentSalonView[]
   billingProfile              SalonBillingProfile?
   invoices                    Invoice[]
   inventoryCategories         InventoryCategory[]
@@ -2662,6 +2664,23 @@ model CustomerFavorite {
   @@index([userId, createdAt])
   @@index([salonId])
   @@map("customer_favorites")
+}
+
+// Customer dashboard "Recently viewed": one row per (customer, salon), viewedAt bumped on each
+// meaningful salon-detail visit (never on card hover). Private to the customer — never exposed to
+// salon owners or other customers — and pruned to a configurable cap per customer on write.
+model CustomerRecentSalonView {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salonId  String
+  salon    Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@unique([userId, salonId])
+  @@index([userId, viewedAt])
+  @@index([salonId])
+  @@map("customer_recent_salon_views")
 }
 
 // ---------- Inventory Phase 2: service consumption ----------

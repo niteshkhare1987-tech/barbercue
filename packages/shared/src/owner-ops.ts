@@ -1185,6 +1185,8 @@ export interface InvoiceSummaryDto {
   status: InvoiceStatus;
   issuedAt: string;
   serviceDate: string;
+  /** Issuing shop's name (the salon is the invoice issuer). Optional for older clients. */
+  salonName?: string;
 }
 
 export interface InvoiceDetailDto extends InvoiceSummaryDto {

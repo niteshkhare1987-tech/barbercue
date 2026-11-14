@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import type {
   CityDto,
@@ -12,6 +13,7 @@ import type {
 import { DISCOVERY_PATHS, POPULAR_SERVICES, formatPriceFilterLabel, popularServiceById } from "@barbercue/shared";
 import { SERVICE_CATEGORIES } from "../../../lib/editorial/manifest";
 import { SalonResultCard } from "../../../components/discovery/SalonResultCard";
+import { MapPreviewCard } from "../../../components/customer-dashboard/MapPreviewCard";
 import { CompareTable, FiltersPanel, SortControl } from "../../../components/discovery/DiscoveryFilters";
 import {
   activeFilterCount,
@@ -24,7 +26,18 @@ import { ShopNameSearchField } from "../../../components/discovery/ShopNameSearc
 import { Button } from "../../../components/ui/Button";
 import { apiFetch } from "../../../lib/api";
 import { useFavorites } from "../../../lib/favorites";
+import { roundBounds } from "../../../lib/map-cluster";
+import type { MapBounds } from "../../../components/customer-dashboard/SalonMap";
 import styles from "./search.module.css";
+
+// Map View is opt-in (customer dashboard). Leaflet and its CSS load only when the map is shown.
+const SalonMap = dynamic(() => import("../../../components/customer-dashboard/SalonMap"), {
+  ssr: false,
+  loading: () => <div className={styles.mapLoading} role="status">Loading map…</div>,
+});
+
+/** Results per request in Map View (the API maximum) so a whole city's pins can show at once. */
+const MAP_PAGE_LIMIT = 50;
 
 // The filter sidebar sits below the fixed site header (152px, see landing.module.css .siteHeaderSpacer).
 const SIDEBAR_TOP = 168;
@@ -32,7 +45,16 @@ const SIDEBAR_BOTTOM_GAP = 16;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 
-export default function SearchClient() {
+export interface SearchClientProps {
+  /** Route this search lives on; every URL update stays on it (default the public /search page). */
+  basePath?: string;
+  /** Offer List View / Map View (customer dashboard). /search keeps its existing list-only layout. */
+  enableMap?: boolean;
+  /** Compact hero for use inside the dashboard. */
+  embedded?: boolean;
+}
+
+export default function SearchClient({ basePath = "/search", enableMap = false, embedded = false }: SearchClientProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [q, setQ] = useState(searchParams.get("shopName") ?? "");
@@ -64,6 +86,17 @@ export default function SearchClient() {
   const comparedService = popularServiceById(discovery.popularService);
   const view = comparedService && searchParams.get("view") === "compare" ? "compare" : "cards";
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // List / Map view lives in the URL (`layout=map`) so switching never drops a filter and a shared
+  // link reopens the same view.
+  const mapView = enableMap && searchParams.get("layout") === "map";
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const appliedBounds = useMemo<MapBounds | null>(() => {
+    const keys = ["minLat", "maxLat", "minLng", "maxLng"] as const;
+    const values = keys.map((key) => Number(searchParams.get(key)));
+    if (keys.some((key) => searchParams.get(key) === null) || values.some((v) => !Number.isFinite(v))) return null;
+    return { minLat: values[0], maxLat: values[1], minLng: values[2], maxLng: values[3] };
+  }, [searchParams]);
+  const origin = nearMeActive ? { lat: Number(searchParams.get("lat")), lng: Number(searchParams.get("lng")) } : null;
   const [hasMore, setHasMore] = useState(false);
   const filterCount = activeFilterCount(discovery);
   // The sidebar never scrolls inside itself. If it fits on screen it stays pinned under the header;
@@ -108,7 +141,7 @@ export default function SearchClient() {
       : rest;
     if (switchesService && __popularService === null) all.view = null;
     const query = withParams(searchParams, all);
-    router.push(`/search${query ? `?${query}` : ""}`);
+    router.push(`${basePath}${query ? `?${query}` : ""}`);
   }
 
   function clearAllFilters() {
@@ -155,14 +188,14 @@ export default function SearchClient() {
         params.set("lat", String(lat));
         params.set("lng", String(lng));
         params.set("radiusKm", String(value));
-        router.push(`/search?${params.toString()}`);
+        router.push(`${basePath}?${params.toString()}`);
       });
       return;
     }
     const params = new URLSearchParams(searchParams.toString());
     if (value === null) params.delete("radiusKm");
     else params.set("radiusKm", String(value));
-    router.push(`/search?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   function selectSort(sort: SalonSearchSortOption) {
@@ -188,6 +221,7 @@ export default function SearchClient() {
     // city/countryCode already arrive as real slugs/codes here (from CitySearchField's own
     // selection, or a shared/bookmarked URL) — no client-side normalization needed or safe to do.
     const params = new URLSearchParams(searchApiQuery(searchParams, favoriteKey ? favoriteKey.split(",") : undefined));
+    if (mapView) params.set("limit", String(MAP_PAGE_LIMIT));
 
     let cancelled = false;
     Promise.resolve()
@@ -225,7 +259,36 @@ export default function SearchClient() {
     return () => {
       cancelled = true;
     };
-  }, [retryKey, searchParams, favoritesGate, favoriteKey]);
+  }, [retryKey, searchParams, favoritesGate, favoriteKey, mapView]);
+
+  // Map View: search the rectangle the customer panned/zoomed to. Service, price, rating, type and
+  // other filters stay; the city/radius location filters are replaced by the visible area.
+  function searchArea(bounds: MapBounds) {
+    setSelectedCity(null);
+    setSelectedId(null);
+    applyChanges({ ...roundBounds(bounds), city: null, countryCode: null, radiusKm: null });
+  }
+
+  function clearArea() {
+    applyChanges({ minLat: null, maxLat: null, minLng: null, maxLng: null });
+  }
+
+  function setLayout(next: "list" | "map") {
+    setSelectedId(null);
+    applyChanges({ layout: next === "map" ? "map" : null });
+  }
+
+  /** Card clicked/focused in the list → highlight its pin (links inside still navigate). */
+  function selectFromList(salonId: string) {
+    if (mapView) setSelectedId(salonId);
+  }
+
+  useEffect(() => {
+    if (!selectedId || !mapView) return;
+    document.getElementById(`result-${selectedId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedId, mapView]);
+
+  const selectedSalon = selectedId ? results.find((salon) => salon.id === selectedId) ?? null : null;
 
   function handleSubmit(event?: React.FormEvent, explicitService?: string) {
     event?.preventDefault();
@@ -236,6 +299,8 @@ export default function SearchClient() {
     params.delete("q");
     if (shopName) params.set("shopName", shopName);
     else params.delete("shopName");
+    // A new city/name search starts from the whole city again, not a previously searched map area.
+    for (const key of ["minLat", "maxLat", "minLng", "maxLng"]) params.delete(key);
     if (selectedCity) {
       params.set("city", selectedCity.slug);
       params.set("countryCode", selectedCity.countryCode);
@@ -245,7 +310,7 @@ export default function SearchClient() {
       params.delete("countryCode");
     }
     if (styleName) params.set("style", styleName);
-    router.push(`/search${params.size ? `?${params.toString()}` : ""}`);
+    router.push(`${basePath}${params.size ? `?${params.toString()}` : ""}`);
   }
 
   // "Near Me" (Phase 4) — the browser's own Geolocation API, no paid Maps/geocoding SDK. On
@@ -256,7 +321,7 @@ export default function SearchClient() {
       const params = new URLSearchParams(searchParams.toString());
       params.set("lat", String(lat));
       params.set("lng", String(lng));
-      router.push(`/search?${params.toString()}`);
+      router.push(`${basePath}?${params.toString()}`);
     });
   }
 
@@ -267,11 +332,11 @@ export default function SearchClient() {
     // radiusKm is meaningless without a query point (see salonSearchQuerySchema's own doc
     // comment) — dropped here too so it doesn't linger as a dead param a shared link would carry.
     params.delete("radiusKm");
-    router.push(`/search${params.size ? `?${params.toString()}` : ""}`);
+    router.push(`${basePath}${params.size ? `?${params.toString()}` : ""}`);
   }
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${embedded ? styles.embedded : ""}`}>
       <section className={styles.intro} aria-labelledby="search-heading">
         <div className={styles.heroCopy}>
           <h1 id="search-heading">
@@ -351,7 +416,7 @@ export default function SearchClient() {
         </aside>
       )}
 
-      <div className={styles.discoveryLayout}>
+      <div className={`${styles.discoveryLayout} ${mapView ? styles.discoveryLayoutMap : ""}`}>
       <aside
         id="discovery-filters"
         ref={asideRef}
@@ -390,6 +455,14 @@ export default function SearchClient() {
             )}
           </div>
         )}
+        {appliedBounds && (
+          <div className={styles.activeChips} aria-label="Map area">
+            <button type="button" className={styles.activeChip} onClick={clearArea}>
+              Searching the map area <span aria-hidden="true">×</span>
+              <span className={styles.srOnlyText}> (remove)</span>
+            </button>
+          </div>
+        )}
         <div className={styles.resultsHeading}>
           <h2 id="results-heading" className={styles.resultsTitle}>
             {loading
@@ -408,6 +481,12 @@ export default function SearchClient() {
               Filters{filterCount > 0 ? ` (${filterCount})` : ""}
             </button>
             <SortControl state={discovery} onChange={selectSort} />
+            {enableMap && (
+              <div className={styles.viewToggle} role="group" aria-label="List or map">
+                <button type="button" aria-pressed={!mapView} onClick={() => setLayout("list")}>☰ List View</button>
+                <button type="button" aria-pressed={mapView} onClick={() => setLayout("map")}>⌖ Map View</button>
+              </div>
+            )}
             {comparedService && (
               <div className={styles.viewToggle} role="group" aria-label="Result view">
                 <button type="button" aria-pressed={view === "cards"} onClick={() => applyChanges({ view: null })}>Cards</button>
@@ -448,7 +527,7 @@ export default function SearchClient() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => router.push(`/login?next=${encodeURIComponent(`/search?${searchParams.toString()}`)}`)}
+              onClick={() => router.push(`/login?next=${encodeURIComponent(`${basePath}?${searchParams.toString()}`)}`)}
             >
               Sign in
             </Button>
@@ -482,7 +561,7 @@ export default function SearchClient() {
               onClick={() => {
                 setQ("");
                 setSelectedCity(null);
-                router.push("/search");
+                router.push(basePath);
               }}
             >
               Clear search
@@ -495,13 +574,44 @@ export default function SearchClient() {
         )}
         {!loading && !error && results.length > 0 && view === "cards" && (
           <div className={styles.cardList}>
-            {results.map((salon) => (
-              <SalonResultCard key={salon.id} salon={salon} styleName={styleName} />
-            ))}
+            {results.map((salon) =>
+              mapView ? (
+                <div
+                  key={salon.id}
+                  id={`result-${salon.id}`}
+                  className={`${styles.mapResult} ${selectedId === salon.id ? styles.mapResultSelected : ""}`}
+                  onClickCapture={() => selectFromList(salon.id)}
+                  onFocusCapture={() => selectFromList(salon.id)}
+                >
+                  <MapPreviewCard salon={salon} />
+                </div>
+              ) : (
+                <SalonResultCard key={salon.id} salon={salon} styleName={styleName} />
+              ),
+            )}
           </div>
         )}
-        {!loading && !error && results.length > 0 && <p className={styles.availabilityNote}>Real availability appears when you book.</p>}
+        {!loading && !error && results.length > 0 && <p className={styles.availabilityNote}>Real availability appears when you book.{nearMeActive ? " Distances are straight-line from your location, not driving distance." : ""}</p>}
       </section>
+      {mapView && (
+        <aside className={styles.mapColumn} aria-label="Map">
+          <SalonMap
+            salons={error ? [] : results}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            origin={origin}
+            appliedBounds={appliedBounds}
+            onSearchArea={searchArea}
+            loading={loading}
+          />
+          {selectedSalon && (
+            <div className={styles.mapPreview} role="dialog" aria-label={`${selectedSalon.name} details`}>
+              <button type="button" className={styles.mapPreviewClose} onClick={() => setSelectedId(null)} aria-label="Close salon details">×</button>
+              <MapPreviewCard salon={selectedSalon} />
+            </div>
+          )}
+        </aside>
+      )}
       </div>
     </main>
   );

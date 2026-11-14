@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AUTH_PATHS,
@@ -14,6 +15,7 @@ import { useAuth } from "../../../../lib/auth-context";
 import { Button } from "../../../../components/ui/Button";
 import { Card } from "../../../../components/ui/Card";
 import { CustomerPhoneLinkPanel } from "../../../../components/auth/CustomerPhoneLinkPanel";
+import { LocationSettings, PrivacySettings } from "../../../../components/customer-dashboard/SettingsExtras";
 import styles from "./profile.module.css";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -162,6 +164,24 @@ export default function ProfilePage() {
                 {user?.roles.map((r) => ROLE_LABELS[r] ?? r).join(", ") ?? "—"}
               </dd>
             </div>
+            {/* The password itself is hashed and can never be shown — only whether one exists. */}
+            <div className={styles.fieldRow}>
+              <dt className={styles.fieldLabel}>Sign-in method</dt>
+              <dd className={styles.fieldValue}>
+                {[
+                  user?.passwordConfigured ? "Email & password" : null,
+                  user?.phone ? "Mobile OTP" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "Google / Apple sign-in"}
+                {user?.passwordConfigured && (
+                  <>
+                    {" "}
+                    <Link href="/forgot-password">Reset password</Link>
+                  </>
+                )}
+              </dd>
+            </div>
           </dl>
         </Card>
       </section>
@@ -293,6 +313,8 @@ export default function ProfilePage() {
           )}
         </Card>
       </section>
+      <LocationSettings />
+      <PrivacySettings />
     </div>
   );
 }

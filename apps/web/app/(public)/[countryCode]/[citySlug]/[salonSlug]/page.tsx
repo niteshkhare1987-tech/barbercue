@@ -16,6 +16,7 @@ import { LinkButton } from "../../../../../components/ui/Button";
 import { EditorialImage } from "../../../../../components/editorial/EditorialImage";
 import { PublicSalonStatus } from "../../../../../components/discovery/PublicSalonStatus";
 import { ActivityTicker } from "../../../../../components/discovery/ActivityTicker";
+import { SalonDetailActions } from "../../../../../components/customer-dashboard/SalonDetailActions";
 import styles from "./profile.module.css";
 
 interface SalonPageParams {
@@ -209,6 +210,7 @@ export default async function SalonPage({
             )}
           </div>
           <address>{salon.addressLine}</address>
+          <SalonDetailActions salon={{ id: salon.id, name: salon.name, slug: salon.slug, citySlug: salon.citySlug, countryCode: salon.countryCode }} />
           {salon.phone && <a className={styles.phone} href={`tel:${salon.phone}`}>{salon.phone}</a>}
           {salon.description && <p className={styles.description}>{salon.description}</p>}
 

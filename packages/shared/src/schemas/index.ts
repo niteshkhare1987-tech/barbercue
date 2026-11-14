@@ -359,7 +359,19 @@ export const salonSearchQuerySchema = z
       .transform((value) => value.split(",").map((id) => id.trim()).filter(Boolean))
       .pipe(z.array(z.string().uuid()).min(1).max(SALON_SEARCH_MAX_IDS))
       .optional(),
+    // Customer dashboard map view ("Search this area"): the visible map rectangle. All four or
+    // none — a partial box is ignored by the service. Purely an extra AND filter on salons that
+    // have coordinates; it never changes text/service/price matching or ranking.
+    minLat: z.coerce.number().min(-90).max(90).optional(),
+    maxLat: z.coerce.number().min(-90).max(90).optional(),
+    minLng: z.coerce.number().min(-180).max(180).optional(),
+    maxLng: z.coerce.number().min(-180).max(180).optional(),
   })
+  .refine(
+    (data) =>
+      data.minLat === undefined || data.maxLat === undefined || data.minLat <= data.maxLat,
+    { message: "minLat must not be greater than maxLat.", path: ["minLat"] },
+  )
   .refine(
     (data) => data.sort !== "distance" || (data.lat !== undefined && data.lng !== undefined),
     { message: "Sorting by distance needs your location.", path: ["sort"] },

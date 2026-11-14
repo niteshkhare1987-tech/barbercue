@@ -16,6 +16,7 @@ import {
 export const SEARCH_API_PARAMS = [
   "q", "shopName", "city", "countryCode", "locality", "service", "lat", "lng", "radiusKm",
   "priceMin", "priceMax", "salonType", "popularService", "sort", "minRating", "openNow", "offersOnly", "maxWaitMinutes",
+  "minLat", "maxLat", "minLng", "maxLng",
 ] as const;
 
 /**

@@ -1969,6 +1969,8 @@ export class AuthService {
       }
       await tx.authIdentity.deleteMany({ where: { userId } });
       await tx.pushDevice.deleteMany({ where: { userId } });
+      // Browsing history is personal data with no retention need once the account is gone.
+      await tx.customerRecentSalonView.deleteMany({ where: { userId } });
       await tx.notificationPreference.deleteMany({ where: { userId } });
       await tx.notification.deleteMany({ where: { userId } });
       // A review owns optional customer-written content and the attached owner response. Neither

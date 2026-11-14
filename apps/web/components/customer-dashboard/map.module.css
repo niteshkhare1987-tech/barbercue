@@ -1,0 +1,76 @@
+.wrap {
+  position: relative;
+  height: 100%;
+  min-height: 420px;
+  border-radius: var(--bc-radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--bc-border);
+  background: #ece6dc;
+  isolation: isolate;
+}
+.map { position: absolute; inset: 0; }
+
+.overlayNote {
+  position: absolute; inset: 0; z-index: 500;
+  display: grid; place-items: center; padding: 24px; text-align: center;
+  color: var(--bc-muted); font-weight: 600;
+}
+.tileError, .unmapped {
+  position: absolute; left: 12px; bottom: 12px; z-index: 500;
+  margin: 0; max-width: calc(100% - 24px);
+  padding: 6px 10px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 0.75rem; color: var(--bc-muted);
+  box-shadow: var(--bc-shadow-sm);
+}
+.tileError { bottom: auto; top: 12px; left: 56px; }
+.searchArea {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 600;
+  padding: 10px 18px; border: 0; border-radius: 999px;
+  background: var(--bc-brand-navy); color: #fff; font-weight: 700; font-size: 0.85rem;
+  box-shadow: 0 8px 20px rgba(26, 21, 51, 0.3);
+  cursor: pointer;
+}
+.searchArea:disabled { opacity: 0.8; cursor: progress; }
+.searchArea:focus-visible { outline: 3px solid var(--bc-brand-orange); outline-offset: 2px; }
+
+/* Cluster bubble: brand gradient, white count. Global because Leaflet owns the marker element. */
+.clusterIcon { background: transparent; border: 0; }
+.clusterIcon span {
+  width: 100%; height: 100%;
+  display: grid; place-content: center; text-align: center;
+  border-radius: 999px;
+  background: var(--bc-brand-gradient);
+  color: #fff; line-height: 1;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 6px rgba(242, 84, 45, 0.22), 0 6px 14px rgba(26, 21, 51, 0.25);
+  cursor: pointer;
+}
+.clusterIcon b { font-size: 0.95rem; }
+.clusterIcon small { font-size: 0.55rem; font-weight: 600; opacity: 0.9; }
+.clusterSelected span { box-shadow: 0 0 0 6px rgba(26, 21, 51, 0.45), 0 6px 14px rgba(26, 21, 51, 0.25); }
+
+/* Single salon pin: navy teardrop, coral when selected; rating only at street zoom. */
+.pinIcon { background: transparent; border: 0; }
+.pinHead {
+  position: relative;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--bc-brand-navy);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 10px rgba(26, 21, 51, 0.35);
+  color: #fff; font-size: 0.62rem; font-weight: 800;
+  cursor: pointer;
+}
+.pinHead em { width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.pinHead i { transform: rotate(45deg); font-style: normal; }
+.pinSelected .pinHead { background: var(--bc-brand-coral); transform: rotate(-45deg) scale(1.15); }
+
+.originIcon { background: transparent; border: 0; }
+.originIcon span {
+  display: block; width: 18px; height: 18px; border-radius: 50%;
+  background: #2f7cf6; border: 3px solid #fff;
+  box-shadow: 0 0 0 6px rgba(47, 124, 246, 0.25);
+}

@@ -89,7 +89,7 @@ describe("the one-time code step", () => {
     expect(text(r)).toContain("SMS delivery may take a moment");
     await submit(r, "customer-otp", "012345");
     expect(verifyCustomerOtp).toHaveBeenCalledWith({ phone: PHONE, code: "012345" });
-    expect(replace).toHaveBeenCalledWith("/account/bookings");
+    expect(replace).toHaveBeenCalledWith("/account");
     await act(async () => r.unmount());
   });
 

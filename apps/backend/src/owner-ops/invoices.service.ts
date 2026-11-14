@@ -16,6 +16,8 @@ import {
   type BillingProfileDto,
   type BillingProfileInput,
   type CreateInvoiceInput,
+  type CustomerInvoiceListQuery,
+  dayRangeBounds,
   type InvoiceDetailDto,
   type InvoiceLineInput,
   type InvoiceListDto,
@@ -673,10 +675,20 @@ export class InvoicesService {
     userId: string,
     cursor: string | undefined,
     limit = 20,
+    filters: Omit<CustomerInvoiceListQuery, 'cursor' | 'paymentStatus'> = {},
   ): Promise<InvoiceListDto> {
     const take = Math.min(Math.max(limit, 1), 50);
+    const issuedAt = dayRangeBounds(filters.from, filters.to);
     const rows = await this.prisma.invoice.findMany({
-      where: { customerId: userId, status: InvoiceStatus.ISSUED },
+      where: {
+        customerId: userId,
+        status: InvoiceStatus.ISSUED,
+        ...(issuedAt.gte || issuedAt.lt ? { issuedAt } : {}),
+        ...(filters.salonId ? { salonId: filters.salonId } : {}),
+        ...(filters.q
+          ? { number: { contains: filters.q, mode: 'insensitive' as const } }
+          : {}),
+      },
       include: invoiceInclude,
       orderBy: [{ issuedAt: 'desc' }, { id: 'desc' }],
       take: take + 1,
@@ -965,6 +977,7 @@ export class InvoicesService {
         refundedPaise,
       }),
       status: row.status,
+      salonName: row.salon.name,
       issuedAt: row.issuedAt.toISOString(),
       serviceDate: row.serviceDate.toISOString(),
     };

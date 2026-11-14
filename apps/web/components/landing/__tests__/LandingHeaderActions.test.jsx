@@ -41,7 +41,7 @@ describe('LandingHeaderActions "wide" (desktop header)', () => {
     const anchors = links('wide');
     expect(hrefOf(anchors, 'List Your Shop')).toBe('/dashboard/register-shop');
     // The account link is additive, not a replacement — a signed-in customer keeps both.
-    expect(hrefOf(anchors, 'My account')).toBe('/account/bookings');
+    expect(hrefOf(anchors, 'My account')).toBe('/account');
   });
 
   it('preserves existing behaviour: no duplicate onboarding entry point for an existing owner', () => {

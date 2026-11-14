@@ -54,7 +54,7 @@ function CustomerLoginForm() {
     setSubmitting(true);
     try {
       await googleLogin({ idToken });
-      router.replace(safeNextPath(searchParams.get("next")) ?? "/account/bookings");
+      router.replace(safeNextPath(searchParams.get("next")) ?? "/account");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not sign in with Google. Please try again.");
     } finally {
@@ -123,7 +123,7 @@ function CustomerLoginForm() {
     setSubmitting(true);
     try {
       await verifyCustomerOtp(parsed.data);
-      router.replace(safeNextPath(searchParams.get("next")) ?? "/account/bookings");
+      router.replace(safeNextPath(searchParams.get("next")) ?? "/account");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not verify OTP. Please try again.");
     } finally {

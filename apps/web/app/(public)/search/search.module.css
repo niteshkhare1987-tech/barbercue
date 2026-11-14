@@ -710,3 +710,52 @@
   color-scheme: dark;
   cursor: pointer;
 }
+
+/* ---- Customer dashboard: embedded Discover + List/Map view (opt-in via SearchClient props) ---- */
+.embedded { min-height: 0; border-radius: var(--bc-radius-xl); overflow: clip; }
+.embedded .intro { width: calc(100% - 32px); margin-top: 16px; padding: 22px 24px 18px; }
+.embedded .heroCopy { display: none; }
+.embedded .searchForm { margin-top: 0; }
+.embedded .discoveryLayout { width: calc(100% - 32px); padding-bottom: 32px; }
+
+.discoveryLayoutMap { grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr); width: min(1600px, calc(100% - 32px)); }
+.discoveryLayoutMap .cardList { display: grid; gap: 12px; }
+.discoveryLayoutMap .filtersAside { position: static; display: none; grid-column: 1 / -1; }
+.discoveryLayoutMap .filtersAsideOpen { display: block; }
+.discoveryLayoutMap .filtersToggle { display: inline-flex; align-items: center; }
+.mapColumn {
+  position: sticky;
+  top: 16px;
+  height: calc(100dvh - 120px);
+  min-height: 460px;
+}
+.mapLoading {
+  height: 100%; display: grid; place-items: center;
+  border-radius: var(--bc-radius-lg); background: var(--fq-charcoal); color: var(--fq-text-muted);
+}
+.mapResult { padding: 12px; border-radius: 16px; background: #fff; transition: box-shadow 160ms ease; scroll-margin: 16px; cursor: pointer; }
+.mapResultSelected { box-shadow: 0 0 0 3px var(--fq-orange); }
+.mapPreview {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 700;
+  padding: 14px 40px 14px 14px;
+  border-radius: 16px; background: #fff;
+  box-shadow: 0 14px 34px rgba(26, 21, 51, 0.28);
+  animation: mapPreviewIn 160ms ease-out;
+}
+.mapPreviewClose {
+  position: absolute; top: 8px; right: 8px;
+  width: 30px; height: 30px; border: 0; border-radius: 999px;
+  background: var(--bc-surface-tint); color: var(--bc-ink); font-size: 1.1rem; cursor: pointer;
+}
+@keyframes mapPreviewIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (max-width: 1100px) {
+  .discoveryLayoutMap { grid-template-columns: minmax(0, 1fr); }
+  .discoveryLayoutMap .mapColumn { order: -1; position: relative; top: 0; height: 64dvh; min-height: 360px; }
+  .embedded .intro, .embedded .discoveryLayout { width: calc(100% - 20px); }
+  .embedded .intro { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapPreview { animation: none; }
+  .mapResult { transition: none; }
+}

@@ -135,15 +135,25 @@ export function useFavorites() {
   };
 }
 
-export type FavoriteSort = "recent" | "rating" | "name";
+export type FavoriteSort = "recent" | "rating" | "name" | "price" | "nearest";
 
-/** Favorites page ordering: most recently saved, highest rated (unrated last), or by name. */
-export function sortFavorites<T extends { name: string; ratingAverage: number | null; ratingCount: number; favoritedAt: string }>(items: T[], sort: FavoriteSort): T[] {
+/**
+ * Favorites page ordering: most recently saved, highest rated (unrated last), by name, lowest
+ * starting price (unpriced last), or nearest (needs `distanceKm`; salons without one go last).
+ */
+export function sortFavorites<
+  T extends { name: string; ratingAverage: number | null; ratingCount: number; favoritedAt: string; priceMin?: number | null; distanceKm?: number | null },
+>(items: T[], sort: FavoriteSort): T[] {
+  const last = Number.POSITIVE_INFINITY;
   return [...items].sort((a, b) =>
     sort === "rating"
       ? (b.ratingAverage ?? -1) - (a.ratingAverage ?? -1) || b.ratingCount - a.ratingCount
       : sort === "name"
         ? a.name.localeCompare(b.name)
-        : b.favoritedAt.localeCompare(a.favoritedAt),
+        : sort === "price"
+          ? (a.priceMin ?? last) - (b.priceMin ?? last) || a.name.localeCompare(b.name)
+          : sort === "nearest"
+            ? (a.distanceKm ?? last) - (b.distanceKm ?? last) || a.name.localeCompare(b.name)
+            : b.favoritedAt.localeCompare(a.favoritedAt),
   );
 }

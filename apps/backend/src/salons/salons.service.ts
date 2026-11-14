@@ -67,6 +67,24 @@ const KM_PER_DEGREE_LAT = 111;
 // not a circle) — candidates inside it still get the exact Haversine distance and sort below, so
 // the approximation only affects which rows are considered, never how they're ordered once
 // considered.
+/** The map rectangle from a search query, or null unless all four edges were supplied. */
+export function mapBounds(query: {
+  minLat?: number;
+  maxLat?: number;
+  minLng?: number;
+  maxLng?: number;
+}): { minLat: number; maxLat: number; minLng: number; maxLng: number } | null {
+  const { minLat, maxLat, minLng, maxLng } = query;
+  if (
+    minLat === undefined ||
+    maxLat === undefined ||
+    minLng === undefined ||
+    maxLng === undefined
+  )
+    return null;
+  return { minLat, maxLat, minLng, maxLng };
+}
+
 function boundingBoxDegrees(lat: number, lng: number, radiusKm: number) {
   const latDelta = radiusKm / KM_PER_DEGREE_LAT;
   const kmPerDegreeLng = KM_PER_DEGREE_LAT * Math.cos((lat * Math.PI) / 180);
@@ -473,6 +491,23 @@ export class SalonsService {
     // review score. Unreviewed salons have no average, so they never pass a minimum.
     const extraConditions: Prisma.SalonWhereInput[] = [];
     if (query.ids) extraConditions.push({ id: { in: query.ids } });
+    // Map "Search this area" bounds (customer dashboard). Kept in AND, never as top-level lat/lng
+    // keys, so the Near-me bounding box below (which sets where.lat/lng) still applies on top.
+    const bounds = mapBounds(query);
+    if (bounds) {
+      extraConditions.push({
+        lat: { not: null, gte: bounds.minLat, lte: bounds.maxLat },
+        ...(bounds.minLng <= bounds.maxLng
+          ? { lng: { not: null, gte: bounds.minLng, lte: bounds.maxLng } }
+          : {
+              // A box crossing the antimeridian (minLng > maxLng) wraps around.
+              OR: [
+                { lng: { gte: bounds.minLng } },
+                { lng: { lte: bounds.maxLng } },
+              ],
+            }),
+      });
+    }
     // Offers only: a published offer valid now that covers the selected service (an offer with
     // no linked services covers all of them), or any active service when none is selected.
     if (query.offersOnly) {

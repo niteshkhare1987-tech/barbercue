@@ -1,0 +1,31 @@
+.layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.fieldset { border: 0; padding: 0; margin: 0 0 18px; display: grid; gap: 10px; }
+.fieldset:disabled { opacity: 0.6; }
+.textarea { padding: 10px; border-radius: 10px; border: 1px solid var(--bc-border); font: inherit; color: var(--bc-ink); }
+.card {
+  position: relative;
+  aspect-ratio: 1.6 / 1;
+  display: grid;
+  align-content: end;
+  gap: 4px;
+  padding: 22px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.25), transparent 40%),
+    linear-gradient(135deg, var(--bc-brand-navy) 0%, #3a2366 55%, var(--bc-brand-coral) 130%);
+  color: #fff;
+  box-shadow: var(--bc-shadow-card);
+  overflow: hidden;
+}
+.brand { position: absolute; top: 20px; left: 22px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.9; }
+.amount { font-size: 2.2rem; line-height: 1; }
+.message { font-size: 0.9rem; opacity: 0.92; }
+.sample {
+  position: absolute; top: 20px; right: 20px;
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.7rem; font-weight: 700;
+}
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}

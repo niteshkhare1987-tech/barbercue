@@ -17,7 +17,8 @@ export function workspaceLandingPath(user: MeResponse): string {
   if (user.roles.includes(Role.SALON_OWNER) || user.roles.includes(Role.SALON_STAFF)) {
     return ownerHomePath(user);
   }
-  return "/account/bookings";
+  // Customer dashboard home (Discover, appointments, rewards…); /account/bookings is My Appointments.
+  return "/account";
 }
 
 /**

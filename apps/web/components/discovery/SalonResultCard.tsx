@@ -6,6 +6,7 @@ import type { SalonListItemDto, SalonOfferSummaryDto } from "@barbercue/shared";
 import { SALON_TYPE_LABELS, SHOP_CLOSED_TODAY_MESSAGE, VERIFICATION_BADGE_CAPTION, formatDistance, formatMoney } from "@barbercue/shared";
 import { SalonImage } from "../ui/SalonImage";
 import { FavoriteButton } from "./FavoriteButton";
+import { ShareSalonButton } from "../customer-dashboard/ShareSalonButton";
 import { Lightbox } from "./PhotoGallery";
 import styles from "./salon-result-card.module.css";
 
@@ -193,6 +194,7 @@ export function SalonResultCard({ salon, styleName }: { salon: SalonListItemDto;
           </Link>
         )}
         <FavoriteButton salonId={salon.id} salonName={salon.name} />
+        <ShareSalonButton salon={salon} />
         {headline && <span className={styles.offerBadge}>{headline}</span>}
         {photos.length > 1 && (
           <>

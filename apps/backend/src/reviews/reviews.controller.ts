@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   REVIEW_PATHS,
   createReviewSchema,
@@ -32,6 +41,15 @@ export class ReviewsController {
     @Body(new ZodValidationPipe(updateReviewSchema)) body: UpdateReviewInput,
   ) {
     return this.reviews.update(user.id, id, body);
+  }
+
+  @Get(REVIEW_PATHS.mine)
+  @Header('Cache-Control', 'private, no-store')
+  listMine(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.reviews.listMine(user.id, cursor);
   }
 
   @Get(`${REVIEW_PATHS.booking}/:bookingId`)
