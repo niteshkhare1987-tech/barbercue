@@ -168,6 +168,25 @@ export function activeAdminItem(items: readonly AdminNavItem[], pathname: string
   );
 }
 
+export type AdminNavGroup = (typeof ADMIN_NAV_GROUPS)[number];
+
+/** The main-rail sections that still have at least one item this user may open (empty ones are hidden). */
+export function adminNavGroupsFor(items: readonly AdminNavItem[]): AdminNavGroup[] {
+  return ADMIN_NAV_GROUPS.filter((g) => items.some((i) => i.group === g.id));
+}
+
+/**
+ * The section whose items the sub-sidebar shows: the one the user picked in the rail, else the one
+ * containing the current page, else the first visible section. A pick the role cannot see is ignored.
+ */
+export function selectedAdminGroup(
+  groups: readonly AdminNavGroup[],
+  picked: AdminNavGroupId | null,
+  active: AdminNavItem | null,
+): AdminNavGroup | null {
+  return groups.find((g) => g.id === picked) ?? groups.find((g) => g.id === active?.group) ?? groups[0] ?? null;
+}
+
 export function plannedItem(id: string): AdminNavItem | null {
   return ADMIN_NAV_ITEMS.find((i) => i.status === "planned" && i.id === id) ?? null;
 }

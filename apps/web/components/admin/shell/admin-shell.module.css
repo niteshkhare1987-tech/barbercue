@@ -6,6 +6,49 @@
 .rail { overflow-y: auto; scrollbar-width: none; }
 .rail::-webkit-scrollbar { display: none; }
 
+/* Rail sections are buttons that switch the sub-sidebar; the section holding the current page keeps a
+   small brand marker while another section is being browsed. */
+.rail button { font-family: inherit; }
+.railBtnHere { position: relative; color: var(--os-chrome-ink); }
+.railBtnHere::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--bc-brand-orange);
+}
+
+/* Sub-sidebar: only the selected section's pages, with the section name as its heading. */
+.subnav { display: flex; flex-direction: column; }
+.subnavTitle { margin-top: 4px; font-size: 12px; color: var(--os-chrome-ink); }
+.sidebarFoot { margin-top: auto; padding-top: 16px; }
+
+/* Phone section picker (the rail is hidden below 768px). */
+.groupPicker { display: none; }
+.groupPicker label {
+  display: block;
+  margin: 0 10px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--os-chrome-muted);
+}
+.groupPicker select {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--os-chrome-border);
+  background: var(--os-chrome-surface);
+  color: var(--os-chrome-ink);
+  font: 600 14px var(--font-body);
+  color-scheme: dark;
+}
+
 .soon {
   margin-left: auto;
   padding: 2px 7px;
@@ -73,6 +116,21 @@
   color-scheme: dark;
 }
 .rangeError { flex-basis: 100%; margin: 0; color: var(--os-bad-ink); font-size: 13px; }
+
+/* In the drawer layout the rail stays clickable above the scrim, so another section can be picked
+   while the drawer is open. */
+@media (max-width: 1180px) {
+  .root .rail { z-index: 61; }
+}
+
+@media (max-width: 767px) {
+  .groupPicker { display: block; padding: 0 0 6px; }
+  .subnavTitle { display: none; }
+}
+
+@media (forced-colors: active) {
+  .railBtnHere::after { background: Highlight; forced-color-adjust: none; }
+}
 
 @media (max-width: 760px) {
   .rangeLabel, .scope { display: none; }

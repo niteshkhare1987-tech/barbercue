@@ -11,7 +11,14 @@ import { Icon } from "../../owner/icons";
 import { initialsOf, shortName } from "../../owner/format";
 import ui from "../../owner/owner.module.css";
 import { COMMAND_CENTER_PRESETS, formatRangeLabel } from "../shop-activity-range";
-import { ADMIN_NAV_GROUPS, activeAdminItem, adminNavFor, hrefOf } from "./admin-nav";
+import {
+  activeAdminItem,
+  adminNavFor,
+  adminNavGroupsFor,
+  hrefOf,
+  selectedAdminGroup,
+  type AdminNavGroupId,
+} from "./admin-nav";
 import { AdminFiltersProvider, useAdminFilters } from "./admin-filters";
 import shell from "./admin-shell.module.css";
 import { ActionAssistant } from "../../assistant/ActionAssistant";
@@ -46,12 +53,17 @@ function ShellInner({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Section picked in the rail (or the phone picker) without navigating yet; cleared on every navigation
+  // so the sub-sidebar falls back to the section that contains the current page.
+  const [pickedGroup, setPickedGroup] = useState<AdminNavGroupId | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const roles = user?.roles ?? [];
   const items = adminNavFor(roles);
   const active = activeAdminItem(items, pathname, search);
-  const groups = ADMIN_NAV_GROUPS.filter((g) => items.some((i) => i.group === g.id));
+  const groups = adminNavGroupsFor(items);
+  const group = selectedAdminGroup(groups, pickedGroup, active);
+  const groupItems = group ? items.filter((i) => i.group === group.id) : [];
   const roleLabel = roles.map((r) => ROLE_LABEL[r]).find(Boolean) ?? "Admin";
   const displayName = user?.email ?? user?.phone ?? "Account";
 
@@ -70,7 +82,29 @@ function ShellInner({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient UI when the route changes
     setDrawerOpen(false);
     setMenuOpen(false);
+    setPickedGroup(null);
   }, [pathname, search]);
+
+  // Escape closes the tablet/phone drawer, like the account menu.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
+  /** Rail click: show that section's pages. Below 1180px the sub-sidebar is a drawer, so open it too. */
+  function pickGroup(id: AdminNavGroupId) {
+    const drawerLayout = typeof window !== "undefined" && window.matchMedia?.("(max-width: 1180px)").matches;
+    if (drawerLayout && drawerOpen && group?.id === id) {
+      setDrawerOpen(false);
+      return;
+    }
+    setPickedGroup(id);
+    if (drawerLayout) setDrawerOpen(true);
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -104,20 +138,24 @@ function ShellInner({ children }: { children: ReactNode }) {
           <Link href="/dashboard/admin" className={ui.railLogo} aria-label="Admin home" title="Admin home">
             <BrandLockup compact markOnly />
           </Link>
-          {groups.map((group) => {
-            const first = items.find((i) => i.group === group.id && i.status === "live") ?? items.find((i) => i.group === group.id)!;
-            const isActive = active?.group === group.id;
+          {groups.map((g) => {
+            const isSelected = group?.id === g.id;
+            const holdsPage = active?.group === g.id;
             return (
-              <Link
-                key={group.id}
-                href={hrefOf(first)}
-                className={`${ui.railBtn} ${isActive ? ui.railBtnActive : ""}`}
-                aria-current={isActive ? "true" : undefined}
-                title={group.label}
+              <button
+                key={g.id}
+                type="button"
+                className={`${ui.railBtn} ${isSelected ? ui.railBtnActive : ""} ${holdsPage && !isSelected ? shell.railBtnHere : ""}`}
+                aria-pressed={isSelected}
+                aria-controls="admin-sidebar"
+                aria-current={holdsPage ? "location" : undefined}
+                aria-label={g.label}
+                title={holdsPage && !isSelected ? `${g.label} (current page)` : g.label}
+                onClick={() => pickGroup(g.id)}
               >
-                <Icon name={group.icon} size={22} />
-                <span>{group.label.split(" ")[0]}</span>
-              </Link>
+                <Icon name={g.icon} size={22} />
+                <span aria-hidden="true">{g.label.split(" ")[0]}</span>
+              </button>
             );
           })}
           <span className={ui.railSpacer} />
@@ -131,31 +169,48 @@ function ShellInner({ children }: { children: ReactNode }) {
             <div className={ui.shopName}>FastQue Admin</div>
             <div className={ui.shopSub}>{roleLabel}</div>
           </div>
-          {groups.map((group) => (
-            <div key={group.id}>
-              <div className={ui.navGroupLabel}>{group.label}</div>
-              <ul className={ui.navList}>
-                {items
-                  .filter((i) => i.group === group.id)
-                  .map((item) => {
-                    const isActive = active?.id === item.id;
-                    return (
-                      <li key={item.id}>
-                        <Link
-                          href={hrefOf(item)}
-                          className={`${ui.navLink} ${isActive ? ui.navLinkActive : ""}`}
-                          aria-current={isActive ? "page" : undefined}
-                        >
-                          <span className={ui.navLabel}>{item.label}</span>
-                          {item.status === "planned" && <span className={shell.soon}>Planned</span>}
-                        </Link>
-                      </li>
-                    );
-                  })}
-              </ul>
+          {/* Phones have no rail: pick the section here instead. */}
+          {groups.length > 1 && group && (
+            <div className={shell.groupPicker}>
+              <label htmlFor="admin-group-picker">Section</label>
+              <select
+                id="admin-group-picker"
+                value={group.id}
+                onChange={(event) => setPickedGroup(event.target.value as AdminNavGroupId)}
+              >
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          ))}
-          <ul className={ui.navList}>
+          )}
+          {group && (
+            <nav className={shell.subnav} aria-labelledby="admin-subnav-title">
+              <div id="admin-subnav-title" className={`${ui.navGroupLabel} ${shell.subnavTitle}`}>
+                {group.label}
+              </div>
+              <ul className={ui.navList}>
+                {groupItems.map((item) => {
+                  const isActive = active?.id === item.id;
+                  return (
+                    <li key={item.id}>
+                      <Link
+                        href={hrefOf(item)}
+                        className={`${ui.navLink} ${isActive ? ui.navLinkActive : ""}`}
+                        aria-current={isActive ? "page" : undefined}
+                      >
+                        <span className={ui.navLabel}>{item.label}</span>
+                        {item.status === "planned" && <span className={shell.soon}>Planned</span>}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          )}
+          <ul className={`${ui.navList} ${shell.sidebarFoot}`}>
             <li>
               <button type="button" className={ui.navLink} onClick={() => void handleLogout()}>
                 <Icon name="logout" />
