@@ -205,36 +205,39 @@
   padding: 3px 10px;
   border-radius: 999px;
   white-space: nowrap;
+  /* Tint derived from the badge's own text colour, so it stays readable both on the light
+     public pages and inside the dark admin scope (which swaps the --bc-* text tokens). */
+  border: 1px solid color-mix(in srgb, currentColor 38%, transparent);
+  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 
 .green {
-  background: #e7f4e8;
   color: var(--bc-success);
 }
 
 .amber {
-  background: #fdf1dd;
   color: var(--bc-warn);
 }
 
 .red {
-  background: #fbe4e3;
   color: var(--bc-accent);
 }
 
+/* Navy is not redefined by the dark scope (it would be dark-on-dark there): text uses the
+   theme ink, the tint keeps the brand navy hue. */
 .navy {
-  background: #e6e4f0;
-  color: var(--bc-brand-navy);
+  color: var(--bc-ink);
+  border-color: color-mix(in srgb, var(--bc-brand-navy) 45%, transparent);
+  background: color-mix(in srgb, var(--bc-brand-navy) 18%, transparent);
 }
 
 .grey {
-  background: #efece6;
   color: var(--bc-muted);
 }
 
 .sandbox {
   border: 1px dashed var(--bc-warn);
-  background: #fffaf0;
+  background: color-mix(in srgb, var(--bc-warn) 10%, transparent);
   color: var(--bc-warn);
   border-radius: var(--bc-radius-md);
   padding: var(--bc-space-3) var(--bc-space-4);
