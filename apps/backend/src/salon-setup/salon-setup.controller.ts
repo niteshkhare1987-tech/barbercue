@@ -580,6 +580,20 @@ export class SalonSetupController {
     return this.staff.create(user.id, salonId, body);
   }
 
+  @Post(`${SALON_SCOPE}/${DASHBOARD_PATHS.staff}/:staffId/photo/${DASHBOARD_PATHS.photoUpload}`)
+  @UseInterceptors(FileInterceptor('image', {
+    storage: memoryStorage(),
+    limits: { fileSize: SALON_PHOTO_UPLOAD.maxBytes, files: 1 },
+  }))
+  uploadStaffPortrait(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('salonId') salonId: string,
+    @Param('staffId') staffId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.photos.uploadStaffPortrait(user.id, salonId, staffId, file);
+  }
+
   @Patch(`${SALON_SCOPE}/${DASHBOARD_PATHS.staff}/:staffId`)
   updateStaff(
     @CurrentUser() user: AuthenticatedUser,

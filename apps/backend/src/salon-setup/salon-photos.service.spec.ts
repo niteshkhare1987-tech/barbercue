@@ -12,6 +12,7 @@ describe('SalonPhotosService', () => {
       updateMany: jest.Mock;
       deleteMany: jest.Mock;
     };
+    salonStaff: { findFirst: jest.Mock; updateMany: jest.Mock };
     $transaction: jest.Mock;
     auditLog: { create: jest.Mock };
   };
@@ -40,6 +41,10 @@ describe('SalonPhotosService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      salonStaff: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'staff-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
         fn(prisma),
       ),
@@ -66,6 +71,30 @@ describe('SalonPhotosService', () => {
     url: 'https://cdn.test/a.jpg',
     type: 'COVER' as never,
   };
+
+  it('saves a portrait on the scoped barber without adding a salon gallery photo', async () => {
+    const buffer = await sharp({
+      create: { width: 4, height: 4, channels: 3, background: '#a62351' },
+    }).jpeg().toBuffer();
+    const file = { buffer, size: buffer.length } as Express.Multer.File;
+
+    await expect(service.uploadStaffPortrait('owner-1', 'salon-1', 'staff-1', file))
+      .resolves.toEqual({ photoUrl: 'https://cdn.test/uploaded.jpg' });
+
+    expect(salonAccess.assertOwnerOrAdminAccess).toHaveBeenCalledWith('owner-1', 'salon-1');
+    expect(prisma.salonStaff.updateMany).toHaveBeenCalledWith({
+      where: { id: 'staff-1', salonId: 'salon-1' },
+      data: { photoUrl: 'https://cdn.test/uploaded.jpg' },
+    });
+    expect(prisma.photo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a barber outside the session salon before uploading a portrait', async () => {
+    prisma.salonStaff.findFirst.mockResolvedValue(null);
+    await expect(service.uploadStaffPortrait('owner-1', 'salon-1', 'other-staff', undefined))
+      .rejects.toMatchObject({ code: 'STAFF_NOT_FOUND' });
+    expect(storage.putPublicObject).not.toHaveBeenCalled();
+  });
 
   it('checks salon access before listing', async () => {
     await service.list('owner-1', 'salon-1');

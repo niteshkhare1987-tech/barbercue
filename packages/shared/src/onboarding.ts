@@ -65,6 +65,7 @@ export const OnboardingMediaCategory = {
   WAITING_AREA: "WAITING_AREA",
   EQUIPMENT: "EQUIPMENT",
   RETAIL_DISPLAY: "RETAIL_DISPLAY",
+  BARBER_PORTRAIT: "BARBER_PORTRAIT",
 } as const;
 export type OnboardingMediaCategory =
   (typeof OnboardingMediaCategory)[keyof typeof OnboardingMediaCategory];
@@ -96,6 +97,7 @@ export const ONBOARDING_PHOTO_SLOTS: ReadonlyArray<{ category: OnboardingMediaCa
   { category: "RETAIL_DISPLAY", label: "Retail / product display", hint: "Products for sale" },
   { category: "INTERIOR", label: "Other interior", hint: "Any other inside view" },
   { category: "LOGO", label: "Logo", hint: "The logo, if there is one" },
+  { category: "BARBER_PORTRAIT", label: "Barber portraits", hint: "Add individual portraits with each barber's permission. These stay in the onboarding record." },
   { category: "OTHER", label: "Miscellaneous", hint: "Anything else useful" },
 ];
 

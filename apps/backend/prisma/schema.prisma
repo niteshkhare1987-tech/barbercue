@@ -3648,6 +3648,7 @@ enum OnboardingMediaCategory {
   WAITING_AREA
   EQUIPMENT
   RETAIL_DISPLAY
+  BARBER_PORTRAIT
 }
 
 enum OnboardingServiceSource {

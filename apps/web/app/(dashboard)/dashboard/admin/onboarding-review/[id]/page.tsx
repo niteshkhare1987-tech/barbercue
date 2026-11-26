@@ -386,12 +386,12 @@ export default function AdminOnboardingReviewPage() {
           </section>
 
           <section className={local.card}>
-            <h2>Salon photos ({photos.length})</h2>
+            <h2>Onboarding photos ({photos.length})</h2>
             {photos.length === 0 && <p className={styles.empty}>{app.photoExceptionReason ? `Photo requirement waived: ${app.photoExceptionReason}` : "No photos uploaded."}</p>}
             <div className={local.thumbs}>
               {photos.map((m) => (
                 <div key={m.id} className={local.thumb}>
-                  {superAdmin && app.salonId && (
+                  {superAdmin && app.salonId && m.category !== "BARBER_PORTRAIT" && (
                     <input
                       type="checkbox"
                       aria-label={`Approve ${m.category} photo for public display`}
@@ -400,7 +400,7 @@ export default function AdminOnboardingReviewPage() {
                     />
                   )}
                   <PrivateImage path={m.filePath} alt={`${m.category} photo`} />
-                  <small>{m.category.toLowerCase()} · {m.uploadedBy} · {when(m.createdAt)}</small>
+                  <small>{m.category === "BARBER_PORTRAIT" ? "Barber portrait (private)" : m.category.toLowerCase()} · {m.uploadedBy} · {when(m.createdAt)}</small>
                   {m.capture?.latitude != null && m.capture.longitude != null && (
                     <small>
                       Camera {when(m.capture.capturedAt)} ·{" "}

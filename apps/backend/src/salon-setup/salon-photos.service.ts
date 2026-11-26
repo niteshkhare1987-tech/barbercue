@@ -109,7 +109,50 @@ export class SalonPhotosService {
     );
     const count = await this.assertUnderLimit(salonId);
 
-    if (!file || file.size === 0) {
+    const { buffer, mime } = await this.prepareUpload(file);
+    const key = `salons/${salonId}/photos/${randomUUID()}.${extensionForMimeType(mime)}`;
+    const url = await this.storage.putPublicObject(key, buffer, mime);
+
+    const photo = await this.insert(
+      salonId,
+      url,
+      meta.altText,
+      meta.type,
+      count,
+    );
+    if (actor !== 'OWNER')
+      await this.logAdminAdd(userId, salonId, photo, 'upload');
+    return photo;
+  }
+
+  async uploadStaffPortrait(
+    userId: string,
+    salonId: string,
+    staffId: string,
+    file: Express.Multer.File | undefined,
+  ): Promise<{ photoUrl: string }> {
+    await this.salonAccess.assertOwnerOrAdminAccess(userId, salonId);
+    const where = { id: staffId, salonId };
+    const notFound = () => new AppException('STAFF_NOT_FOUND', 'Barber not found.', HttpStatus.NOT_FOUND);
+    if (!(await this.prisma.salonStaff.findFirst({ where, select: { id: true } }))) {
+      throw notFound();
+    }
+
+    const { buffer, mime } = await this.prepareUpload(file);
+    const key = `salons/${salonId}/barbers/${staffId}/${randomUUID()}.${extensionForMimeType(mime)}`;
+    const photoUrl = await this.storage.putPublicObject(key, buffer, mime);
+    try {
+      const result = await this.prisma.salonStaff.updateMany({ where, data: { photoUrl } });
+      if (result.count === 0) throw notFound();
+    } catch (error) {
+      await this.storage.deleteObject(photoUrl).catch(() => undefined);
+      throw error;
+    }
+    return { photoUrl };
+  }
+
+  private async prepareUpload(file: Express.Multer.File | undefined) {
+    if (!file?.buffer.length) {
       throw new AppException(
         'PHOTO_FILE_REQUIRED',
         'Please choose a photo to upload.',
@@ -118,7 +161,7 @@ export class SalonPhotosService {
     }
     // multer's own `limits.fileSize` truncates rather than throwing in some configurations, so the
     // size is checked again here against the real buffer rather than assumed to have been enforced.
-    if (file.size > SALON_PHOTO_UPLOAD.maxBytes) {
+    if (file.size > SALON_PHOTO_UPLOAD.maxBytes || file.buffer.length > SALON_PHOTO_UPLOAD.maxBytes) {
       throw new AppException(
         'PHOTO_TOO_LARGE',
         `That photo is too large. Please choose one under ${Math.floor(SALON_PHOTO_UPLOAD.maxBytes / (1024 * 1024))} MB.`,
@@ -137,23 +180,7 @@ export class SalonPhotosService {
       );
     }
 
-    // Random key, never the uploaded filename: a client-supplied name could collide with an
-    // existing object, contain path separators, or leak whatever the owner happened to call the
-    // file. Scoped by salon so a bucket listing stays readable.
-    const key = `salons/${salonId}/photos/${randomUUID()}.${extensionForMimeType(detected)}`;
-    const sanitized = await this.reencodeUploadedImage(file.buffer, detected);
-    const url = await this.storage.putPublicObject(key, sanitized, detected);
-
-    const photo = await this.insert(
-      salonId,
-      url,
-      meta.altText,
-      meta.type,
-      count,
-    );
-    if (actor !== 'OWNER')
-      await this.logAdminAdd(userId, salonId, photo, 'upload');
-    return photo;
+    return { buffer: await this.reencodeUploadedImage(file.buffer, detected), mime: detected };
   }
 
   /** Decode and re-encode uploads so stored bytes have safe orientation and no embedded metadata. */

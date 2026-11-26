@@ -1,0 +1,1 @@
+ALTER TYPE "OnboardingMediaCategory" ADD VALUE 'BARBER_PORTRAIT';

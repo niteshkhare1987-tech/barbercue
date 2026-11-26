@@ -290,6 +290,9 @@ export default function DashboardStaffPage({
                 <StaffProfileEditor
                   salonId={salonId}
                   member={m}
+                  onPhotoSaved={(photoUrl) => {
+                    setStaff((prev) => prev?.map((staff) => staff.id === m.id ? { ...staff, photoUrl } : staff) ?? prev);
+                  }}
                   onSaved={(updated) => {
                     setStaff((prev) => (prev ?? []).map((s) => (s.id === updated.id ? updated : s)));
                     setProfileOpenFor(null);

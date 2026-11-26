@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DASHBOARD_PATHS, updateSalonStaffSchema } from "@barbercue/shared";
+import { DASHBOARD_PATHS, SALON_PHOTO_UPLOAD, updateSalonStaffSchema } from "@barbercue/shared";
 import type { SalonStaffDto } from "@barbercue/shared";
 import { apiFetch, ApiError } from "../../lib/api";
 import { Button } from "../ui/Button";
@@ -17,10 +17,12 @@ export function StaffProfileEditor({
   salonId,
   member,
   onSaved,
+  onPhotoSaved,
 }: {
   salonId: string;
   member: SalonStaffDto;
   onSaved: (updated: SalonStaffDto) => void;
+  onPhotoSaved: (photoUrl: string) => void;
 }) {
   const base = `${DASHBOARD_PATHS.dashboard}/${DASHBOARD_PATHS.salons}/${salonId}/${DASHBOARD_PATHS.staff}/${member.id}`;
   const [bio, setBio] = useState(member.bio ?? "");
@@ -31,11 +33,39 @@ export function StaffProfileEditor({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [uploading, setUploading] = useState(false);
+  const [photoNotice, setPhotoNotice] = useState("");
+
+  async function uploadPortrait(file: File) {
+    setError(null);
+    setPhotoNotice("");
+    if (file.size > SALON_PHOTO_UPLOAD.maxBytes) {
+      setError("Choose a smaller barber photo.");
+      return;
+    }
+    const body = new FormData();
+    body.append("image", file);
+    setUploading(true);
+    try {
+      const result = await apiFetch<{ photoUrl: string }>(
+        `${base}/photo/${DASHBOARD_PATHS.photoUpload}`,
+        { method: "POST", body },
+      );
+      setPhotoUrl(result.photoUrl);
+      onPhotoSaved(result.photoUrl);
+      setPhotoNotice("Barber photo saved.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not upload the barber photo.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSave() {
     setError(null);
     const parsed = updateSalonStaffSchema.safeParse({
       bio,
-      photoUrl,
+      ...(photoUrl !== (member.photoUrl ?? "") ? { photoUrl } : {}),
       ...(yearsExperience.trim() ? { yearsExperience: Number(yearsExperience) } : {}),
     });
     if (!parsed.success) {
@@ -58,30 +88,46 @@ export function StaffProfileEditor({
 
   return (
     <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--bc-border)" }}>
-      {error && <p className={`${styles.banner} ${styles.bannerError}`}>{error}</p>}
+      {error && <p role="alert" className={`${styles.banner} ${styles.bannerError}`}>{error}</p>}
       <div className={styles.fieldWrap} style={{ marginBottom: 10 }}>
-        <label className={styles.fieldLabel} htmlFor={`bio-${member.id}`}>Bio</label>
+        <label className={styles.fieldLabel} htmlFor={`bio-${member.id}`}>Skills description (optional)</label>
         <textarea
           id={`bio-${member.id}`}
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           maxLength={500}
           rows={3}
-          placeholder="A short professional bio customers will see on your shop's profile."
+          placeholder="e.g. Specializes in skin fades, beard shaping, and textured cuts."
           className={styles.input}
         />
       </div>
       <div className={styles.fieldWrap} style={{ marginBottom: 10 }}>
+        <label className={styles.fieldLabel} htmlFor={`portrait-${member.id}`}>Barber photo (optional)</label>
+        <input
+          id={`portrait-${member.id}`}
+          className={styles.input}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          disabled={uploading || saving}
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (file) void uploadPortrait(file);
+          }}
+        />
+        <p className={styles.hint}>Uploads save immediately and can appear on your public shop profile. Upload with the barber’s permission.</p>
+        {(uploading || photoNotice) && <p role="status" className={styles.hint}>{uploading ? "Uploading photo…" : photoNotice}</p>}
         <label className={styles.fieldLabel} htmlFor={`photo-${member.id}`}>Photo URL</label>
         <input
           id={`photo-${member.id}`}
           type="url"
+          disabled={uploading || saving}
           value={photoUrl}
           onChange={(e) => setPhotoUrl(e.target.value)}
           placeholder="https://…"
           className={styles.input}
         />
-        <p className={styles.hint}>Link an already-hosted photo — a link to Instagram, Google Business, or any https image works.</p>
+        <p className={styles.hint}>You can also enter a direct HTTPS image link. Clear the link and save to remove the photo from the profile.</p>
       </div>
       <div className={styles.fieldWrap} style={{ marginBottom: 10, maxWidth: 200 }}>
         <label className={styles.fieldLabel} htmlFor={`years-${member.id}`}>Years of experience</label>
@@ -95,7 +141,7 @@ export function StaffProfileEditor({
           className={styles.input}
         />
       </div>
-      <Button type="button" variant="outline" onClick={() => void handleSave()} disabled={saving}>
+      <Button type="button" variant="outline" onClick={() => void handleSave()} disabled={saving || uploading}>
         {saving ? "Saving…" : "Save profile"}
       </Button>
     </div>
