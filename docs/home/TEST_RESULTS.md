@@ -102,3 +102,14 @@ Not load-tested.
 ## Not tested
 
 Real SMS/push, physical phones, Neon, concurrent load, light-theme owner/admin screens in detail, screen readers.
+
+## After merging FastQue Commerce (master 4b14ae59)
+
+| Suite | Result |
+|---|---|
+| Migration chain from empty, drift checks | pass (Commerce then Home); a database that already had Home also took the Commerce migrations |
+| Backend unit | 2300 passed |
+| Backend e2e | 483 passed, the same 21 known failures as master (second full run; the first run had one extra notifications-count failure that passed 3 of 3 alone and in the rerun) |
+| Shared | 729 passed |
+| Web | 1537 passed, the same 5 known ArrivalAlertOverlay failures |
+| Type checks, backend build, web build (Home and Commerce flags on) | pass |
