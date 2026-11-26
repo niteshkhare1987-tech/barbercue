@@ -127,7 +127,8 @@ export default function AdminOnboardingReviewPage() {
   if (!app) return <main className={styles.page}><p className={styles.empty} aria-busy="true">Loading application…</p></main>;
 
   const menus = app.media.filter((m) => m.category === "MENU");
-  const photos = app.media.filter((m) => m.category !== "MENU");
+  const photos = app.media.filter((m) => m.category !== "MENU" && m.category !== "CONSENT_EVIDENCE");
+  const consentEvidence = app.media.filter((m) => m.category === "CONSENT_EVIDENCE");
   const reviewable = REVIEWABLE.includes(app.status);
   const decide = app.canDecide;
   const latestInvite = app.invitations[0];
@@ -384,6 +385,20 @@ export default function AdminOnboardingReviewPage() {
               </table>
             </div>
           </section>
+
+          {consentEvidence.length > 0 && (
+            <section className={local.card}>
+              <h2>Owner consent evidence ({consentEvidence.length})</h2>
+              <div className={local.thumbs}>
+                {consentEvidence.map((media) => (
+                  <div key={media.id} className={local.thumb}>
+                    <PrivateImage path={media.filePath} alt="Owner consent evidence" />
+                    <small>{media.uploadedBy} · {when(media.createdAt)}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className={local.card}>
             <h2>Onboarding photos ({photos.length})</h2>

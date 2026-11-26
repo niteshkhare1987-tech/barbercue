@@ -3649,6 +3649,7 @@ enum OnboardingMediaCategory {
   EQUIPMENT
   RETAIL_DISPLAY
   BARBER_PORTRAIT
+  CONSENT_EVIDENCE
 }
 
 enum OnboardingServiceSource {

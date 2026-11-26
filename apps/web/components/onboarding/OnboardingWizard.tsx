@@ -164,7 +164,7 @@ export function OnboardingWizard({ applicationId }: Props) {
     if (!files.length) return;
     if (!(await save(true))) return;
     setError(null);
-    const fix = fromCamera ? await quickPosition() : null;
+    const fix = fromCamera && category !== "CONSENT_EVIDENCE" ? await quickPosition() : null;
     for (const file of files) {
       if (file.size > ONBOARDING_MEDIA_LIMITS.maxBytes) {
         setError(`${file.name} is larger than 10 MB.`);
@@ -796,7 +796,7 @@ export function OnboardingWizard({ applicationId }: Props) {
             {text("consentByRole", "Their role", { placeholder: "Owner, partner, manager…", maxLength: 40 })}
             <label className={styles.full}>
               Consent evidence note
-              <textarea maxLength={500} placeholder="e.g. Signed form photo uploaded under Miscellaneous; WhatsApp confirmation at 4:10 pm; witness Ravi (manager)." value={(form.consentEvidenceNote as string) ?? ""} disabled={readOnly} onChange={(e) => set("consentEvidenceNote", e.target.value)} />
+              <textarea maxLength={500} placeholder="e.g. WhatsApp confirmation received at 4:10 pm. Attach the screenshot under Photos → Owner consent evidence." value={(form.consentEvidenceNote as string) ?? ""} disabled={readOnly} onChange={(e) => set("consentEvidenceNote", e.target.value)} />
             </label>
             {text("gstin", "GSTIN (optional)", { maxLength: 15 })}
             {text("businessRegistration", "Business registration details (optional)")}

@@ -66,6 +66,7 @@ export const OnboardingMediaCategory = {
   EQUIPMENT: "EQUIPMENT",
   RETAIL_DISPLAY: "RETAIL_DISPLAY",
   BARBER_PORTRAIT: "BARBER_PORTRAIT",
+  CONSENT_EVIDENCE: "CONSENT_EVIDENCE",
 } as const;
 export type OnboardingMediaCategory =
   (typeof OnboardingMediaCategory)[keyof typeof OnboardingMediaCategory];
@@ -98,6 +99,7 @@ export const ONBOARDING_PHOTO_SLOTS: ReadonlyArray<{ category: OnboardingMediaCa
   { category: "INTERIOR", label: "Other interior", hint: "Any other inside view" },
   { category: "LOGO", label: "Logo", hint: "The logo, if there is one" },
   { category: "BARBER_PORTRAIT", label: "Barber portraits", hint: "Add individual portraits with each barber's permission. These stay in the onboarding record." },
+  { category: "CONSENT_EVIDENCE", label: "Owner consent evidence", hint: "Upload a photo of the signed consent form or a screenshot of the owner's WhatsApp or SMS approval. This evidence stays private in the onboarding record." },
   { category: "OTHER", label: "Miscellaneous", hint: "Anything else useful" },
 ];
 
