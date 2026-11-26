@@ -702,3 +702,28 @@
 }
 
 .cartContinue { margin-top: 16px; }
+
+:global(html[data-theme="dark"]) .serviceStep {
+  --bc-ink: var(--foreground);
+  --bc-muted: var(--tv-fg-6b6357, #a59d91);
+  --bc-border: color-mix(in srgb, var(--foreground) 28%, transparent);
+  --bc-gold: #ffc481;
+  --bc-gold-soft: color-mix(in srgb, var(--bc-brand-pink) 14%, var(--tv-bg-ffffff, #0d0d0d));
+  --bc-accent: #ff7897;
+  color: var(--bc-ink);
+}
+
+:global(html[data-theme="dark"]) .serviceStep .optionRowSelected .cartAdd {
+  background: var(--bc-accent);
+  color: #211016;
+  border-color: var(--bc-accent);
+}
+
+:global(html[data-theme="dark"]) .serviceStep .cartContinue button {
+  color: #180b10;
+}
+
+.serviceStep :is(.cartOption, .cartRemove):focus-visible {
+  outline: 2px solid var(--bc-accent);
+  outline-offset: 3px;
+}

@@ -46,7 +46,7 @@ export function ServiceStep({
   const atLimit = selected.length >= maxServices;
 
   return (
-    <section className={showStepNumber ? styles.stepCard : undefined}>
+    <section className={showStepNumber ? [styles.serviceStep, styles.stepCard].join(" ") : styles.serviceStep}>
       <h2 className={styles.stepHeading}>
         {showStepNumber && <span className={styles.stepNumber}>1</span>}
         Select services
