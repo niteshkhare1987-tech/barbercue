@@ -39,10 +39,22 @@ export default function PrivacyPolicyPage() {
             <a href="#data">Information FastQue handles</a>
             <a href="#use">How FastQue uses it</a>
             <a href="#sharing">Services involved</a>
+            <a href="#advertising">Advertising choices</a>
             <a href="#retention">Retention and deletion</a>
             <a href="#contact">Contact us</a>
             <a href="#security">Security</a>
           </nav>
+
+          <section id="advertising">
+            <h2>Optional advertising measurement</h2>
+            <p>
+              When you allow advertising measurement on fastque.com, FastQue uses Meta Pixel to share
+              activity such as page views, searches, salon views and confirmed bookings with Meta.
+              Meta receives browser and network information when the Pixel runs.
+              Use Advertising choices to decline or withdraw your permission at any time.
+              FastQue also honors the Global Privacy Control browser signal for this measurement.
+            </p>
+          </section>
 
           <section id="data">
             <h2>Information FastQue handles</h2>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   BOOKING_PATHS,
@@ -36,6 +36,7 @@ import {
   validUntilText,
 } from "../../lib/public-offers";
 import { apiFetch, ApiError } from "../../lib/api";
+import { trackMetaPixel } from "../../lib/meta-pixel";
 import { newIdempotencyKey } from "../../lib/idempotency";
 import { useAuth } from "../../lib/auth-context";
 import { Button } from "../ui/Button";
@@ -153,6 +154,7 @@ export function BookingFlow({
   const [selectedStaffId, setSelectedStaffId] = useState<string | null | undefined>(initialStaffId);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlotDto | null>(null);
+  const checkoutReported = useRef(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   const [staffOptions, setStaffOptions] = useState<StaffOptionDto[]>([]);
@@ -355,6 +357,7 @@ export function BookingFlow({
       if (campaignKey) forgetCampaign(tokenStore, campaignKey);
       void refreshCurrentAvailability().catch(() => undefined);
       setConfirmedBooking(booking);
+      if (booking.status === "CONFIRMED" && booking.id) trackMetaPixel("Schedule", booking.id);
       setCreditsToRedeem(0);
       // Redemption never fails/rejects — the server always clamps and the booking always succeeds
       // (see BookingsService.create) — so a successful response can still mean some or all of the
@@ -421,6 +424,7 @@ export function BookingFlow({
   // create-fails-with-SLOT_FULL path (that already stays on the picker, unaffected) — only the
   // "start a genuinely new booking attempt" gap.
   function handleBookAnother() {
+    checkoutReported.current = false;
     setConfirmedBooking(null);
     setCancelResult(null);
     setSubmitError(null);
@@ -644,7 +648,13 @@ export function BookingFlow({
         <SlotStep
           slots={slots}
           selectedSlot={selectedSlot}
-          onSelect={setSelectedSlot}
+          onSelect={(slot) => {
+            setSelectedSlot(slot);
+            if (slot && !checkoutReported.current) {
+              checkoutReported.current = true;
+              trackMetaPixel("InitiateCheckout");
+            }
+          }}
           loading={slotsLoading}
           salonTimezone={salonTimezone}
         />

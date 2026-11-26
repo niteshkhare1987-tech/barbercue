@@ -4,6 +4,7 @@ import { DISCOVERY_PATHS } from "@barbercue/shared";
 import type { PublicSalonStatusDto, SalonProfileDto } from "@barbercue/shared";
 import { fetchDiscoveryOrNull } from "../../../../lib/discovery-api";
 import { BookingFlow } from "../../../../components/booking/BookingFlow";
+import { MetaSalonView } from "../../../../components/analytics/MetaPixel";
 import { CampaignCapture } from "../../../../components/booking/CampaignCapture";
 import { salonKey } from "../../../../lib/campaign-token";
 import { isOfferId } from "../../../../lib/public-offers";
@@ -55,6 +56,7 @@ export default async function BookPage({
 
   return (
     <main className={styles.page}>
+      <MetaSalonView key={salon.id} />
       <div className={styles.banner} aria-hidden="true">
         <EditorialImage id="process-haircut" fill priority sizes="(max-width: 760px) 100vw, 760px" />
         <div className={styles.bannerScrim} />

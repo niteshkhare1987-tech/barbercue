@@ -2,6 +2,7 @@ import React, { act } from 'react';
 import TestRenderer from 'react-test-renderer';
 import { BookingFlow } from '../BookingFlow';
 import { apiFetch } from '../../../lib/api';
+import { trackMetaPixel } from '../../../lib/meta-pixel';
 
 // PR #73 (multi-service booking) x PR #75 (customer-session booking gate) integration — proves
 // the two features compose correctly rather than one silently undoing the other:
@@ -26,6 +27,7 @@ function setMockAuthState(next) {
 const mockGoogleLogin = jest.fn();
 
 jest.mock('../../../lib/api', () => ({ apiFetch: jest.fn(), ApiError: class ApiError extends Error {} }));
+jest.mock('../../../lib/meta-pixel', () => ({ trackMetaPixel: jest.fn() }));
 jest.mock('../../../lib/auth-context', () => {
   const { useSyncExternalStore } = require('react');
   return {
@@ -171,12 +173,27 @@ it('A: CUSTOMER audience with multiple services selected can confirm the booking
   await selectTwoServicesThroughToConfirm();
 
   expect(findButtonByText('Confirm booking')).toBeDefined();
+  expect(trackMetaPixel.mock.calls).toEqual([['InitiateCheckout']]);
   await act(async () => findButtonByText('Confirm booking').props.onClick());
+  expect(trackMetaPixel.mock.calls).toEqual([['InitiateCheckout'], ['Schedule', 'booking1']]);
 
   const postCall = apiFetch.mock.calls.find(([, opts]) => opts?.method === 'POST');
   expect(postCall).toBeDefined();
   const body = JSON.parse(postCall[1].body);
   expect(body.serviceIds).toEqual(['haircut', 'beard']);
+});
+
+it.each(['failed', 'pending payment'])('does not report a Schedule for a %s booking', async (outcome) => {
+  const defaultFetch = apiFetch.getMockImplementation();
+  apiFetch.mockImplementation(async (path, opts) => {
+    if (opts?.method !== 'POST') return defaultFetch(path, opts);
+    if (outcome === 'failed') throw new Error('Booking not created');
+    return { ...await defaultFetch(path, opts), status: 'PENDING_PAYMENT' };
+  });
+  await renderFlow();
+  await selectTwoServicesThroughToConfirm();
+  await act(async () => findButtonByText('Confirm booking').props.onClick());
+  expect(trackMetaPixel.mock.calls).toEqual([['InitiateCheckout']]);
 });
 
 it.each([['STAFF'], ['ADMIN']])(

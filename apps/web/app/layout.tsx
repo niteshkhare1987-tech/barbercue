@@ -6,6 +6,7 @@ import { SiteHeader } from "../components/layout/SiteHeader";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { HideOnOwnerShell } from "../components/layout/HideOnOwnerShell";
 import { UniqueVisitorTracker } from "../components/analytics/UniqueVisitorTracker";
+import { MetaPixel } from "../components/analytics/MetaPixel";
 
 // next/font self-hosts these at build time (no runtime request to Google, no layout shift) and
 // exposes each as a CSS variable so globals.css can assign them without a hardcoded font stack
@@ -61,6 +62,7 @@ export default function RootLayout({
     <html lang="en" className={`${fraunces.variable} ${workSans.variable}`}>
       <body>
         <UniqueVisitorTracker />
+        <MetaPixel />
         <AuthProvider>
           <SiteHeader />
           {children}

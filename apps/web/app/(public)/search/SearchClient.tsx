@@ -24,6 +24,7 @@ import { ServiceNameSearchField } from "../../../components/discovery/ServiceNam
 import { Button } from "../../../components/ui/Button";
 import { apiFetch } from "../../../lib/api";
 import { useFavorites } from "../../../lib/favorites";
+import { trackMetaPixel } from "../../../lib/meta-pixel";
 import styles from "./search.module.css";
 
 // The filter sidebar sits below the fixed site header (152px, see landing.module.css .siteHeaderSpacer).
@@ -41,6 +42,7 @@ export default function SearchClient() {
   // actually has salons, never from a global catalogue full of cities with no results.
   const [salonCities, setSalonCities] = useState<CityDto[] | null>(null);
   const [results, setResults] = useState<SalonListItemDto[]>([]);
+  const lastReportedSearch = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -213,6 +215,11 @@ export default function SearchClient() {
         if (!cancelled && data) {
           setResults(data.items);
           setHasMore(data.nextCursor !== null);
+          const query = params.toString();
+          if (query !== lastReportedSearch.current) {
+            lastReportedSearch.current = query;
+            if (query) trackMetaPixel("Search");
+          }
         }
       })
       .catch(() => {

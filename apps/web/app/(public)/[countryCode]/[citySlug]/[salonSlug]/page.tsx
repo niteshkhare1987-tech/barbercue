@@ -16,6 +16,7 @@ import { LinkButton } from "../../../../../components/ui/Button";
 import { EditorialImage } from "../../../../../components/editorial/EditorialImage";
 import { PublicSalonStatus } from "../../../../../components/discovery/PublicSalonStatus";
 import { ActivityTicker } from "../../../../../components/discovery/ActivityTicker";
+import { MetaSalonView } from "../../../../../components/analytics/MetaPixel";
 import styles from "./profile.module.css";
 
 interface SalonPageParams {
@@ -167,6 +168,7 @@ export default async function SalonPage({
 
   return (
     <main className={styles.page}>
+      <MetaSalonView key={salonPath(salon)} />
       <JsonLd data={breadcrumbJsonLd(breadcrumbItems, SITE_URL)} />
       <JsonLd data={buildHairSalonJsonLd(salon)} />
 
