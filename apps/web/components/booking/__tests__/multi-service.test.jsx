@@ -112,6 +112,12 @@ it('CASE 12: selecting a slot then adding a second service clears the stale slot
   // single-service slot.
   await act(async () => findServiceButton('Beard Trim').props.onClick());
 
+  const cart = tree.root.findByProps({ 'aria-label': 'Service cart' });
+  expect(textOf(cart)).toContain('Haircut');
+  expect(textOf(cart)).toContain('Beard Trim');
+  expect(textOf(cart)).toContain('450');
+  expect(textOf(cart)).toContain('50 min total');
+
   // Both the staff step's "Any staff" advance and the "Select slot" advance must be gone — the
   // flow is back at the staff-selection stage rather than still showing a confirm summary for the
   // old slot with the old (now incomplete) service selection.

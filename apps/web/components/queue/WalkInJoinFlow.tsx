@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  MAX_WALK_IN_SERVICES,
   QUEUE_ENTRIES_PATH,
   SALON_QUEUE_PATHS,
   type QueueEntryDetailDto,
@@ -11,6 +12,7 @@ import { apiFetch, ApiError } from "../../lib/api";
 import { newIdempotencyKey } from "../../lib/idempotency";
 import { useAuth } from "../../lib/auth-context";
 import { Button } from "../ui/Button";
+import { ServiceStep } from "../booking/ServiceStep";
 import { QueueStatusPanel } from "./QueueStatusPanel";
 import { QueueContactFields, resolveContactInput } from "./QueueContactFields";
 import styles from "./queue.module.css";
@@ -18,12 +20,17 @@ import styles from "./queue.module.css";
 // Issue #13 Mission E: service selection is visible and usable with no login wall at all — only
 // the actual "Join the queue" action requires a signed-in customer, matching the desired journey
 // (find shop -> select -> confirm -> THEN sign in). Google Identity Services renders as an
-// in-page button/overlay, never a full-page redirect, so `selectedServiceId` below is never lost
+// in-page button/overlay, never a full-page redirect, so `selectedServiceIds` below is never lost
 // across sign-in — the exact same pattern PublicQueueJoinFlow (the QR entry point) already proved
 // out for this queue engine.
-export function WalkInJoinFlow({ salonId, services }: { salonId: string; services: ServiceDto[] }) {
+export function WalkInJoinFlow({ salonId, services, currency = null, countryCode }: {
+  salonId: string;
+  services: ServiceDto[];
+  currency?: string | null;
+  countryCode?: string | null;
+}) {
   const { status: authStatus, user } = useAuth();
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState(user?.phone ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -82,8 +89,8 @@ export function WalkInJoinFlow({ salonId, services }: { salonId: string; service
       setError(resolved.error);
       return;
     }
-    if (authStatus !== "authenticated" && !selectedServiceId) {
-      setError("Please select the service you want before joining.");
+    if (!selectedServiceIds.length) {
+      setError("Please select at least one service before joining.");
       return;
     }
     setSubmitting(true);
@@ -95,7 +102,7 @@ export function WalkInJoinFlow({ salonId, services }: { salonId: string; service
         method: "POST",
         headers: { "Idempotency-Key": newIdempotencyKey() },
         body: JSON.stringify({
-          ...(selectedServiceId ? { serviceId: selectedServiceId } : {}),
+          serviceIds: selectedServiceIds,
           ...resolved.contact,
         }),
       });
@@ -132,22 +139,18 @@ export function WalkInJoinFlow({ salonId, services }: { salonId: string; service
 
   return (
     <div className={styles.joinCard}>
-      <label className={styles.fieldLabel} htmlFor="walkin-service">
-        Service
-      </label>
-      <select
-        id="walkin-service"
-        value={selectedServiceId}
-        onChange={(e) => setSelectedServiceId(e.target.value)}
-        className={styles.select}
-      >
-        <option value="">Select a service</option>
-        {services.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name} ({s.durationMinutes} min)
-          </option>
-        ))}
-      </select>
+      <ServiceStep
+        services={services}
+        selectedServiceIds={selectedServiceIds}
+        onToggle={(id) => setSelectedServiceIds((current) =>
+          current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+        )}
+        currency={currency}
+        countryCode={countryCode}
+        showStepNumber={false}
+        maxServices={MAX_WALK_IN_SERVICES}
+        disabled={submitting}
+      />
 
       {(
         <QueueContactFields
@@ -162,7 +165,7 @@ export function WalkInJoinFlow({ salonId, services }: { salonId: string; service
       {error && <p className={styles.errorText}>{error}</p>}
 
       <div className={styles.joinActions}>
-        <Button type="button" variant="primary" onClick={() => void handleJoin()} disabled={submitting}>
+        <Button type="button" variant="primary" onClick={() => void handleJoin()} disabled={submitting || selectedServiceIds.length === 0}>
           {submitting ? "Joining…" : "Join Live Queue"}
         </Button>
         <p className={styles.reassure}>No Gmail login needed. The contact number is not verified.</p>

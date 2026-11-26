@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
-  joinQueueSchema, type JoinQueueInput,
+  guestWalkInSchema, type GuestWalkInInput,
 } from '@barbercue/shared';
 import { Public } from '../auth/decorators/public.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -20,7 +20,7 @@ const GUEST_MUTATION_LIMIT = { default: { limit: 12, ttl: 60_000, getTracker: by
 const GUEST_READ_LIMIT = { default: { limit: 60, ttl: 60_000, getTracker: byTicket } };
 // Guest customers provide name, mobile number and service. No account creation,
 // trust elevation to an existing account or bogus phone verification occurs.
-export const guestJoinSchema = joinQueueSchema.required();
+export const guestJoinSchema = guestWalkInSchema;
 
 @Public()
 @Controller()
@@ -34,10 +34,10 @@ export class QueueGuestController {
   @Throttle(GUEST_JOIN_LIMIT)
   join(
     @Param('salonId') salonId: string,
-    @Body(new ZodValidationPipe(guestJoinSchema)) body: Required<JoinQueueInput>,
+    @Body(new ZodValidationPipe(guestJoinSchema)) body: GuestWalkInInput,
   ) {
     return this.queueService.joinGuestWalkIn(
-      salonId, body.serviceId, body.contactName, body.contactPhone,
+      salonId, body.serviceIds ?? body.serviceId!, body.contactName, body.contactPhone,
     );
   }
 

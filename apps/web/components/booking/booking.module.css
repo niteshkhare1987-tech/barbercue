@@ -179,57 +179,6 @@
   margin-top: 4px;
 }
 
-/* Multi-service booking core mission — a small check indicator on each selectable service row,
-   and a summary bar showing the combined duration/price once at least one is selected. */
-.optionCheck {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1.5px solid var(--bc-border);
-  color: transparent;
-  font-size: 0.7rem;
-  flex: 0 0 auto;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.optionRowSelected .optionCheck {
-  background: var(--bc-accent);
-  border-color: var(--bc-accent);
-  color: var(--tv-fg-ffffff, #ffffff);
-}
-
-.optionRowHeadWithCheck {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.selectionSummary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-top: var(--bc-space-3);
-  padding: 12px 16px;
-  border-radius: var(--bc-radius-sm);
-  background: var(--bc-gold-soft);
-  font-size: var(--bc-text-sm);
-}
-
-.selectionSummaryNames {
-  color: var(--bc-ink);
-  font-weight: 600;
-}
-
-.selectionSummaryTotals {
-  color: var(--bc-ink);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 /* ---------- Pill chips (staff / date / time) ---------- */
 
 .chipRow {
@@ -642,4 +591,112 @@
 .shareStatus {
   font-size: var(--bc-text-xs);
   color: var(--bc-muted);
+}
+
+.serviceCartLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  margin-top: var(--bc-space-3);
+}
+
+.serviceCartLayout .serviceList {
+  margin-top: 0;
+}
+
+.cartOption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.cartDuration {
+  display: block;
+  color: var(--bc-muted);
+  font-size: var(--bc-text-xs);
+  margin-top: 3px;
+}
+
+.cartAdd,
+.cartRemove {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--bc-border);
+  background: var(--tv-bg-ffffff, #fff);
+  color: var(--bc-ink);
+  font: inherit;
+  font-size: 1.25rem;
+}
+
+.optionRowSelected .cartAdd {
+  background: var(--bc-ink);
+  color: var(--tv-bg-ffffff, #fff);
+}
+
+.cartOption:disabled,
+.cartRemove:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+.serviceCart {
+  min-width: 0;
+  background: var(--tv-bg-ffffff, #fff);
+  border: 1px solid var(--bc-border);
+  border-radius: var(--bc-radius-md);
+  padding: 16px;
+  color: var(--bc-ink);
+}
+
+.serviceCart h3,
+.cartItems {
+  margin: 0;
+}
+
+.cartItems {
+  padding: 0;
+  list-style: none;
+}
+
+.cartItems li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--bc-border);
+  font-size: var(--bc-text-sm);
+}
+
+.cartRemove {
+  cursor: pointer;
+}
+
+.cartTotals {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.cartTotals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (max-width: 670px) {
+  .serviceCartLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cartRemove {
+    width: 44px;
+    height: 44px;
+  }
 }

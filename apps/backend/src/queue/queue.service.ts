@@ -331,22 +331,45 @@ export class QueueService {
     return this.getDetailOrThrow(entryId);
   }
 
+  private async resolveWalkInServices(salonId: string, selection?: string | string[]) {
+    const services = Array.isArray(selection)
+      ? await this.availability.getServicesOrThrow(salonId, selection)
+      : selection ? [await this.availability.getServiceOrThrow(salonId, selection)] : [];
+    const [primary, ...extras] = services;
+    const addOnMinutes = extras.reduce((total, service) => total + service.durationMinutes, 0);
+    return {
+      totalMinutes: primary ? primary.durationMinutes + addOnMinutes : null,
+      entryData: {
+        serviceId: primary?.id ?? (typeof selection === 'string' ? selection : null),
+        ...(extras.length > 0 && {
+          addOnMinutes,
+          addOns: {
+            create: extras.map((service) => ({
+              serviceId: service.id,
+              name: service.name,
+              durationMinutes: service.durationMinutes,
+              price: service.price,
+            })),
+          },
+        }),
+      },
+    };
+  }
+
   async joinWalkIn(
     customerId: string,
     salonId: string,
-    serviceId?: string,
+    selection?: string | string[],
     contact?: { name?: string; phone?: string },
   ): Promise<QueueEntryDetailDto> {
     const salon = await this.availability.getSalonOrThrow(salonId);
-    const joinService = serviceId
-      ? await this.availability.getServiceOrThrow(salonId, serviceId)
-      : null;
+    const services = await this.resolveWalkInServices(salonId, selection);
     await this.assertNotAlreadyInQueue(customerId);
     // Live-visit add-on mission: never accept a join outside opening hours, or one the shop
     // cannot finish before today's closing time.
     await this.assertQueueAcceptingJoins(
       salonId,
-      joinService?.durationMinutes ?? null,
+      services.totalMinutes,
       { projectFinish: true },
     );
 
@@ -375,7 +398,7 @@ export class QueueService {
         data: {
           salonId,
           customerId,
-          serviceId: serviceId ?? null,
+          ...services.entryData,
           source: QueueEntrySource.WALK_IN,
           tokenNumber,
           status: QueueEntryStatus.WAITING,
@@ -408,17 +431,14 @@ export class QueueService {
    */
   async joinGuestWalkIn(
     salonId: string,
-    serviceId: string,
+    selection: string | string[],
     contactName: string,
     contactPhone: string,
   ): Promise<QueueEntryDetailDto & { guestAccessToken: string }> {
     const salon = await this.availability.getSalonOrThrow(salonId);
-    const joinService = await this.availability.getServiceOrThrow(
-      salonId,
-      serviceId,
-    );
+    const services = await this.resolveWalkInServices(salonId, selection);
     // Live-visit add-on mission: same opening-hours / closing-time rule as an account join.
-    await this.assertQueueAcceptingJoins(salonId, joinService.durationMinutes, {
+    await this.assertQueueAcceptingJoins(salonId, services.totalMinutes, {
       projectFinish: true,
     });
     const guestAccessToken = randomBytes(32).toString('base64url');
@@ -452,7 +472,7 @@ export class QueueService {
       const row = await tx.queueEntry.create({
         data: {
           salonId,
-          serviceId,
+          ...services.entryData,
           source: QueueEntrySource.WALK_IN,
           tokenNumber,
           status: QueueEntryStatus.WAITING,

@@ -201,6 +201,22 @@ export const joinQueueSchema = z.object({
 });
 export type JoinQueueInput = z.infer<typeof joinQueueSchema>;
 
+export const MAX_QUEUE_ADD_ONS = 5;
+export const MAX_WALK_IN_SERVICES = MAX_QUEUE_ADD_ONS + 1;
+
+const walkInSelectionSchema = joinQueueSchema.extend({
+  serviceIds: serviceIdsSchema.max(MAX_WALK_IN_SERVICES).optional(),
+});
+export const joinWalkInSchema = walkInSelectionSchema.superRefine((value, ctx) => {
+  if (value.serviceIds) checkServiceSelection(value, ctx);
+});
+export type JoinWalkInInput = z.infer<typeof joinWalkInSchema>;
+
+export const guestWalkInSchema = walkInSelectionSchema
+  .required({ contactName: true, contactPhone: true })
+  .superRefine(checkServiceSelection);
+export type GuestWalkInInput = z.infer<typeof guestWalkInSchema>;
+
 // POST /dashboard/queue-entries/:id/assign — serviceId is only required when the queue entry
 // itself has none (e.g. a walk-in that never picked one); validated in the service layer, not
 // here, since that depends on the target entry's existing state.
@@ -237,7 +253,6 @@ export const addQueueEntryAddOnSchema = z.object({
 export type AddQueueEntryAddOnInput = z.infer<typeof addQueueEntryAddOnSchema>;
 
 /** Most add-ons one visit may carry (a guard against accidental taps, not a business rule). */
-export const MAX_QUEUE_ADD_ONS = 5;
 /** Owner-selectable buffer kept after every service (minutes). */
 export const SERVICE_BUFFER_MIN_MINUTES = 0;
 export const SERVICE_BUFFER_MAX_MINUTES = 30;

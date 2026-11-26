@@ -4,23 +4,12 @@ import type { ServiceDto } from "@barbercue/shared";
 import {
   computePercentageDiscountPaise,
   formatMoney,
+  MAX_SERVICES_PER_BOOKING,
   numberToPaise,
   paiseToRupees,
-  summarizeServiceNames,
 } from "@barbercue/shared";
 import styles from "./booking.module.css";
 
-function discountedPrice(price: number, percent: number): number {
-  const originalPaise = numberToPaise(price);
-  return paiseToRupees(
-    originalPaise - computePercentageDiscountPaise(originalPaise, percent),
-  );
-}
-
-// Multi-service booking core mission — a customer may select multiple services for one
-// appointment. The combined duration/price shown here is a display-only preview (the backend
-// independently re-derives both from serviceIds — see BookingFlow's own comment on this), but it
-// must never silently disagree with what the server will actually charge/schedule.
 export function ServiceStep({
   services,
   selectedServiceIds,
@@ -28,84 +17,90 @@ export function ServiceStep({
   currency,
   countryCode,
   onlineBookingDiscountPercent = 0,
+  showStepNumber = true,
+  maxServices = MAX_SERVICES_PER_BOOKING,
+  disabled = false,
 }: {
   services: ServiceDto[];
   selectedServiceIds: string[];
   onToggle: (serviceId: string) => void;
-  // Threaded from the owning salon — a service price is denominated in its salon's currency.
   currency: string | null;
   countryCode?: string | null;
   onlineBookingDiscountPercent?: number;
+  showStepNumber?: boolean;
+  maxServices?: number;
+  disabled?: boolean;
 }) {
-  const selected = services.filter((s) => selectedServiceIds.includes(s.id));
-  const combinedDurationMinutes = selected.reduce((sum, s) => sum + s.durationMinutes, 0);
-  const combinedOriginalPaise = selected.reduce(
-    (sum, s) => sum + numberToPaise(s.price),
-    0,
-  );
-  const combinedPrice = paiseToRupees(
-    combinedOriginalPaise -
-      computePercentageDiscountPaise(combinedOriginalPaise, onlineBookingDiscountPercent),
-  );
+  const byId = new Map(services.map((service) => [service.id, service]));
+  const selected = selectedServiceIds.flatMap((id) => {
+    const service = byId.get(id);
+    return service ? [service] : [];
+  });
+  const minutes = selected.reduce((sum, service) => sum + service.durationMinutes, 0);
+  const subtotal = selected.reduce((sum, service) => sum + numberToPaise(service.price), 0);
+  const discount = computePercentageDiscountPaise(subtotal, onlineBookingDiscountPercent);
+  const money = (amount: number) => formatMoney(amount, currency, countryCode);
+  const atLimit = selected.length >= maxServices;
 
   return (
-    <section className={styles.stepCard}>
+    <section className={showStepNumber ? styles.stepCard : undefined}>
       <h2 className={styles.stepHeading}>
-        <span className={styles.stepNumber}>1</span> Choose one or more services
+        {showStepNumber && <span className={styles.stepNumber}>1</span>}
+        Select services
       </h2>
-      <div className={styles.serviceList}>
-        {services.map((service) => {
-          const isSelected = selectedServiceIds.includes(service.id);
-          return (
-            <button
-              key={service.id}
-              type="button"
-              onClick={() => onToggle(service.id)}
-              aria-pressed={isSelected}
-              className={`${styles.optionRow} ${isSelected ? styles.optionRowSelected : ""}`}
-            >
-              <div className={styles.optionRowHead}>
-                <span className={styles.optionRowHeadWithCheck}>
-                  <span className={styles.optionCheck} aria-hidden="true">
-                    {isSelected ? "✓" : ""}
-                  </span>
+      <div className={styles.serviceCartLayout}>
+        <div className={styles.serviceList}>
+          {services.length === 0 && <p className={styles.optionMeta}>No services available.</p>}
+          {services.map((service) => {
+            const isSelected = selectedServiceIds.includes(service.id);
+            return (
+              <button
+                key={service.id}
+                type="button"
+                onClick={() => onToggle(service.id)}
+                aria-pressed={isSelected}
+                disabled={disabled || (atLimit && !isSelected)}
+                className={`${styles.optionRow} ${styles.cartOption} ${isSelected ? styles.optionRowSelected : ""}`}
+              >
+                <span>
                   <span className={styles.optionName}>{service.name}</span>
+                  <span className={styles.cartDuration}>{service.durationMinutes} min</span>
                 </span>
-                <span className={styles.optionPrice}>
-                  {onlineBookingDiscountPercent > 0 ? (
-                    <>
-                      <span style={{ textDecoration: "line-through", opacity: 0.6, marginRight: 6 }}>
-                        {formatMoney(service.price, currency, countryCode)}
-                      </span>
-                      <strong>
-                        {formatMoney(
-                          discountedPrice(service.price, onlineBookingDiscountPercent),
-                          currency,
-                          countryCode,
-                        )}
-                      </strong>
-                    </>
-                  ) : (
-                    formatMoney(service.price, currency, countryCode)
-                  )}
-                </span>
-              </div>
-              <div className={styles.optionMeta}>{service.durationMinutes} min</div>
-            </button>
-          );
-        })}
-      </div>
-      {selected.length > 0 && (
-        <div className={styles.selectionSummary}>
-          <span className={styles.selectionSummaryNames}>
-            {summarizeServiceNames(selected.map((s) => s.name))}
-          </span>
-          <span className={styles.selectionSummaryTotals}>
-            {combinedDurationMinutes} min · {formatMoney(combinedPrice, currency, countryCode)}
-            {onlineBookingDiscountPercent > 0 ? ` · ${onlineBookingDiscountPercent}% FastQue offer` : ""}
-          </span>
+                <span className={styles.optionPrice}>{money(service.price)}</span>
+                <span className={styles.cartAdd} aria-hidden="true">{isSelected ? "✓" : "+"}</span>
+              </button>
+            );
+          })}
+          {atLimit && <p className={styles.optionMeta}>You can select up to {maxServices} services.</p>}
         </div>
-      )}
+        <aside className={styles.serviceCart} aria-label="Service cart">
+          <h3>Your services</h3>
+          {selected.length === 0 ? (
+            <p className={styles.optionMeta}>Tap + to add services.</p>
+          ) : (
+            <ul className={styles.cartItems}>
+              {selected.map((service) => (
+                <li key={service.id}>
+                  <span>{service.name}<small className={styles.cartDuration}>{service.durationMinutes} min</small></span>
+                  <span>{money(service.price)}</span>
+                  <button
+                    type="button"
+                    className={styles.cartRemove}
+                    aria-label={`Remove ${service.name} from cart`}
+                    disabled={disabled}
+                    onClick={() => onToggle(service.id)}
+                  >×</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className={styles.cartTotals} aria-live="polite" aria-atomic="true">
+            {discount > 0 && <div><span>FastQue offer ({onlineBookingDiscountPercent}% off)</span><span>−{money(paiseToRupees(discount))}</span></div>}
+            <div><strong>Total</strong><strong>{money(paiseToRupees(subtotal - discount))}</strong></div>
+            {selected.length > 0 && <small className={styles.optionMeta}>{minutes} min total</small>}
+          </div>
+        </aside>
+      </div>
     </section>
   );
 }

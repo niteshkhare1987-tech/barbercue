@@ -36,7 +36,7 @@ export default async function QueuePage({
     <main className={styles.page}>
       <h1 className={styles.pageTitle}>Join the queue at {salon.name}</h1>
       <p className={styles.pageSubtitle}>{salon.addressLine}</p>
-      <WalkInJoinFlow salonId={salon.id} services={salon.services} />
+      <WalkInJoinFlow salonId={salon.id} services={salon.services} currency={salon.currency} countryCode={salon.countryCode} />
     </main>
   );
 }

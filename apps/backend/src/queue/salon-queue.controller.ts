@@ -2,9 +2,9 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import {
   Role,
   SALON_QUEUE_PATHS,
-  joinQueueSchema,
+  joinWalkInSchema,
   type AuthenticatedUser,
-  type JoinQueueInput,
+  type JoinWalkInInput,
 } from '@barbercue/shared';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -38,9 +38,9 @@ export class SalonQueueController {
   join(
     @CurrentUser() user: AuthenticatedUser,
     @Param('salonId') salonId: string,
-    @Body(new ZodValidationPipe(joinQueueSchema)) body: JoinQueueInput,
+    @Body(new ZodValidationPipe(joinWalkInSchema)) body: JoinWalkInInput,
   ) {
-    return this.queueService.joinWalkIn(user.id, salonId, body.serviceId, {
+    return this.queueService.joinWalkIn(user.id, salonId, body.serviceIds ?? body.serviceId, {
       name: body.contactName,
       phone: body.contactPhone,
     });

@@ -126,6 +126,7 @@ describe('QueueService', () => {
   let availability: {
     getSalonOrThrow: jest.Mock<Promise<unknown>, [string]>;
     getServiceOrThrow: jest.Mock<Promise<unknown>, [string, string]>;
+    getServicesOrThrow: jest.Mock;
     assertStaffQualified: jest.Mock<Promise<void>, [string, string, string]>;
     getSlotCapacity: jest.Mock<Promise<number>, [unknown, string, string]>;
     getSlotCapacityForServices: jest.Mock<Promise<number>, [unknown, string, string[]]>;
@@ -262,6 +263,7 @@ describe('QueueService', () => {
       getSalonOrThrow: jest
         .fn<Promise<unknown>, [string]>()
         .mockResolvedValue({ id: 's1', status: 'ACTIVE', ownerUserId: 'owner1' }),
+      getServicesOrThrow: jest.fn(),
       getServiceOrThrow: jest
         .fn<Promise<unknown>, [string, string]>()
         .mockResolvedValue({ id: 'sv1', salonId: 's1' }),
@@ -447,6 +449,27 @@ describe('QueueService', () => {
   });
 
   describe('joinWalkIn', () => {
+    it('creates one queue ticket with all selected services and their extra duration', async () => {
+      availability.getServicesOrThrow.mockResolvedValue([
+        { id: 'sv1', name: 'Haircut', durationMinutes: 30, price: 300 },
+        { id: 'sv2', name: 'Beard trim', durationMinutes: 15, price: 150 },
+      ]);
+      prisma.queueEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prisma.queueEntry.create.mockResolvedValue({ id: 'q2' });
+
+      await service.joinWalkIn('c1', 's1', ['sv1', 'sv2']);
+
+      expect(availability.getServicesOrThrow).toHaveBeenCalledWith('s1', ['sv1', 'sv2']);
+      expect(prisma.queueEntry.create).toHaveBeenCalledTimes(1);
+      expect(lastCallData(prisma.queueEntry.create)).toMatchObject({
+        serviceId: 'sv1',
+        addOnMinutes: 15,
+        addOns: { create: [
+          { serviceId: 'sv2', name: 'Beard trim', durationMinutes: 15, price: 150 },
+        ] },
+      });
+    });
+
     it('rejects with ALREADY_IN_QUEUE when the customer already has an active entry', async () => {
       prisma.queueEntry.findFirst.mockResolvedValueOnce(makeRawEntry());
       await expect(service.joinWalkIn('c1', 's1')).rejects.toMatchObject({
