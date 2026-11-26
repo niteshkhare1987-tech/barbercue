@@ -18,5 +18,7 @@ import {
     ShopAdminController,
   ],
   providers: [ShopCatalogService, ShopOrderService, ShopSellerService],
+  // Used by CommerceModule to place salon orders from a mixed bag.
+  exports: [ShopOrderService],
 })
 export class ShopModule {}

@@ -6,6 +6,7 @@ import type { ShopFacetsDto, ShopProductPageDto } from "@barbercue/shared";
 import { apiFetch, ApiError } from "../../lib/api";
 import { locationQuery, useShopLocation } from "../../lib/shop/store";
 import { CardGrid } from "./ShopParts";
+import { FastQueRail } from "../commerce/CommerceParts";
 import s from "./shop.module.css";
 
 const SORTS = [
@@ -149,6 +150,7 @@ export function ShopBrowse() {
           </div>
           {data?.relaxed && <p className={`${s.alert} ${s.alertInfo}`} style={{ marginBottom: 12 }}>No product matched every word of “{q}”, so here are products matching some of them.</p>}
           {error && <p className={`${s.alert} ${s.alertError}`} role="alert">{error}</p>}
+          {q && <FastQueRail q={q} />}
           {data && !loading && data.items.length === 0 ? (
             <div className={s.empty}>
               <strong>Nothing here yet</strong>

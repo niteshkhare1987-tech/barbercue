@@ -36,6 +36,11 @@ export const TYPE_LABEL: Record<string, string> = {
   "work.payout.sent": "Payout sent",
   "work.payout.failed": "Payout failed — we will retry",
   "work.dispute.updated": "Dispute update",
+  "commerce.order.updated": "Your FastQue order was updated",
+  "commerce.return.updated": "Your return was updated",
+  "commerce.ticket.updated": "Support replied about your order",
+  "commerce.stock.alert": "FastQue stock needs attention",
+  "shop.order.updated": "Marketplace order update",
 };
 
 export function timeAgo(iso: string): string {

@@ -6,6 +6,7 @@ import type { ShopHomeDto, ShopProductCardDto } from "@barbercue/shared";
 import { apiFetch } from "../../lib/api";
 import { locationQuery, useRecent, useShopLocation } from "../../lib/shop/store";
 import { CardGrid } from "./ShopParts";
+import { FastQueRail } from "../commerce/CommerceParts";
 import s from "./shop.module.css";
 
 function Section({ eyebrow, title, sub, href, items, tag }: { eyebrow: string; title: string; sub?: string; href?: string; items: ShopProductCardDto[]; tag?: string }) {
@@ -75,6 +76,7 @@ export function ShopHome({ initial }: { initial: ShopHomeDto | null }) {
         </div>
       </section>
 
+      <FastQueRail />
       <div className={s.marquee} aria-hidden="true">
         <span>Shop local</span>
         <span>Compare salon prices</span>

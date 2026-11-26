@@ -1,0 +1,19 @@
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 12px 0; align-items: end; }
+.form > div, .form > p { grid-column: 1 / -1; }
+.field { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 600; }
+.field small { font-weight: 400; color: var(--bc-muted); }
+.field input, .field select, .field textarea, .input { min-height: 40px; padding: 8px 10px; border: 1px solid var(--bc-border); border-radius: 10px; background: transparent; color: inherit; font: inherit; min-width: 0; }
+.field option, .input option { color: #1c1a17; background: #fff; }
+.internal { padding: 8px 10px; border-left: 3px solid #d08a00; }
+.photo { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 0.85rem; min-height: 40px; }
+.tableWrap { overflow-x: auto; margin: 10px 0; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.table th { text-align: left; padding: 8px; color: var(--bc-muted); font-size: 0.74rem; white-space: nowrap; }
+.table td { padding: 8px; border-top: 1px solid var(--bc-border); vertical-align: top; }
+.error { padding: 10px 12px; border-radius: 10px; background: #fbe4e3; color: #7a1f1c; }
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 140px; }
+.bars > div { flex: 1; max-width: 40px; border-radius: 6px 6px 0 0; background: var(--bc-brand-gradient); }
+@media print {
+  .slip { position: fixed; inset: 0; padding: 24px; background: #fff; color: #000; z-index: 9999; }
+}

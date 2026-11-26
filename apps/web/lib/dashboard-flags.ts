@@ -21,6 +21,12 @@ export function homeServicesLinksEnabled(env: string | undefined = process.env.N
   return env === "true";
 }
 
+/** FastQue Commerce in the admin sidebar. Keep OFF until the backend runs with
+ *  FASTQUE_DIRECT_COMMERCE_ENABLED=true (the API answers 404 until then). */
+export function directCommerceLinksEnabled(env: string | undefined = process.env.NEXT_PUBLIC_FASTQUE_DIRECT_COMMERCE_ENABLED): boolean {
+  return env === "true";
+}
+
 /** Map tiles. Defaults to OpenStreetMap's public tiles (fine for development; set a commercial
  *  provider for production traffic — OSM's tile policy forbids heavy use). */
 export const MAP_TILE_URL = process.env.NEXT_PUBLIC_MAP_TILE_URL ?? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";

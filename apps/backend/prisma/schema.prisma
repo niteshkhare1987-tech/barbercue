@@ -2540,6 +2540,7 @@ model GlobalProduct {
   shopListings      ShopListing[]
   shopOrderItems    ShopOrderItem[]
   wishlistedBy      ShopWishlistItem[]
+  commerceListings  CommerceListing[]
 
   @@index([verificationStatus, createdAt])
   @@index([normalizedName])
@@ -6111,4 +6112,940 @@ model HomeVisitMetric {
   @@index([professionalId, serviceDefId])
   @@index([serviceDefId])
   @@map("home_visit_metrics")
+}
+
+// =============================================================================================
+// FastQue Direct Commerce (docs/commerce/ARCHITECTURE.md). Additive only: the salon marketplace
+// (shop_*) keeps its own tables and services. User ids are stored without a foreign key so account
+// deletion never has to touch commercial records; the only link to existing tables is the product.
+// =============================================================================================
+
+enum CommerceSellerType {
+  FASTQUE
+  SALON
+  DISTRIBUTOR
+  MANUFACTURER
+  BRAND
+  WHOLESALER
+}
+
+enum CommerceListingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum CommerceOrderStatus {
+  PLACED
+  CONFIRMED
+  PROCESSING
+  PACKED
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  DELIVERY_FAILED
+  RETURN_TO_ORIGIN
+  RETURNED
+}
+
+enum CommercePaymentStatus {
+  COD_PENDING
+  COD_COLLECTED
+  SETTLEMENT_PENDING
+  PARTIALLY_SETTLED
+  RECONCILED
+  REFUND_PENDING
+  REFUNDED_OFFLINE
+  VOID
+}
+
+enum CommerceMovementKind {
+  OPENING
+  PURCHASE
+  ADJUSTMENT
+  RESERVE
+  RELEASE
+  DISPATCH
+  DAMAGE
+  EXPIRE
+  QUARANTINE_IN
+  QUARANTINE_OUT
+  TRANSFER_OUT
+  TRANSFER_IN
+}
+
+enum CommerceReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+  INSPECTED
+  REFUNDED
+  REPLACED
+  CLOSED
+}
+
+enum CommercePoStatus {
+  DRAFT
+  APPROVED
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model CommerceSeller {
+  id           String             @id @default(uuid()) @db.Uuid
+  code         String             @unique @db.VarChar(40)
+  type         CommerceSellerType
+  displayName  String             @db.VarChar(120)
+  legalName    String?            @db.VarChar(160)
+  gstin        String?            @db.VarChar(15)
+  address      String?            @db.VarChar(400)
+  supportEmail String?            @db.VarChar(254)
+  supportPhone String?            @db.VarChar(20)
+  grievance    String?            @db.VarChar(400)
+  returnPolicy String?            @db.VarChar(2000)
+  isActive     Boolean            @default(true)
+  // Set only for type SALON: links the existing salon seller without copying its data.
+  salonId      String?            @unique
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
+
+  listings CommerceListing[]
+  orders   CommerceOrder[]
+
+  @@map("commerce_sellers")
+}
+
+model CommerceStaffGrant {
+  userId          String
+  permission      String   @db.VarChar(30)
+  grantedByUserId String
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([userId, permission])
+  @@map("commerce_staff_grants")
+}
+
+model CommerceWarehouse {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(20)
+  name      String   @db.VarChar(120)
+  address   String?  @db.VarChar(400)
+  city      String?  @db.VarChar(80)
+  state     String?  @db.VarChar(80)
+  pincode   String?  @db.VarChar(6)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  batches CommerceBatch[]
+  zones   CommerceZone[]
+  orders  CommerceOrder[]
+
+  @@map("commerce_warehouses")
+}
+
+model CommerceListing {
+  id               String                @id @default(uuid()) @db.Uuid
+  sellerId         String                @db.Uuid
+  seller           CommerceSeller        @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  globalProductId  String
+  globalProduct    GlobalProduct         @relation(fields: [globalProductId], references: [id], onDelete: Restrict)
+  sku              String                @unique @db.VarChar(60)
+  mrp              Decimal               @db.Decimal(12, 2)
+  price            Decimal               @db.Decimal(12, 2)
+  promoPrice       Decimal?              @db.Decimal(12, 2)
+  promoStartsAt    DateTime?             @db.Timestamptz(6)
+  promoEndsAt      DateTime?             @db.Timestamptz(6)
+  status           CommerceListingStatus @default(DRAFT)
+  maxPerOrder      Int                   @default(5)
+  weightGrams      Int                   @default(500)
+  codEligible      Boolean               @default(true)
+  returnable       Boolean               @default(true)
+  returnWindowDays Int                   @default(7)
+  reorderLevel     Int                   @default(0)
+  safetyStock      Int                   @default(0)
+  expiryTracked    Boolean               @default(true)
+  featured         Boolean               @default(false)
+  createdAt        DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime              @updatedAt @db.Timestamptz(6)
+
+  batches          CommerceBatch[]
+  orderItems       CommerceOrderItem[]
+  poItems          CommercePoItem[]
+  supplierProducts CommerceSupplierProduct[]
+
+  @@unique([sellerId, globalProductId])
+  @@index([status, createdAt])
+  @@index([globalProductId, status])
+  @@map("commerce_listings")
+}
+
+// onHand = physically present, sellable condition, INCLUDING reserved. Available = onHand - reserved.
+model CommerceBatch {
+  id              String            @id @default(uuid()) @db.Uuid
+  listingId       String            @db.Uuid
+  listing         CommerceListing   @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  warehouseId     String            @db.Uuid
+  warehouse       CommerceWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  batchNumber     String            @db.VarChar(60)
+  manufacturedOn  DateTime?         @db.Date
+  expiresOn       DateTime?         @db.Date
+  unitCost        Decimal           @db.Decimal(12, 2)
+  supplierId      String?           @db.Uuid
+  purchaseOrderId String?           @db.Uuid
+  storageLocation String?           @db.VarChar(60)
+  onHand          Int               @default(0)
+  reserved        Int               @default(0)
+  quarantined     Int               @default(0)
+  damaged         Int               @default(0)
+  expired         Int               @default(0)
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(6)
+
+  movements   CommerceStockMovement[]
+  allocations CommerceAllocation[]
+
+  @@unique([listingId, warehouseId, batchNumber])
+  @@index([listingId, expiresOn])
+  @@index([warehouseId])
+  @@index([expiresOn])
+  @@map("commerce_batches")
+}
+
+model CommerceStockMovement {
+  id              String               @id @default(uuid()) @db.Uuid
+  batchId         String               @db.Uuid
+  batch           CommerceBatch        @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  kind            CommerceMovementKind
+  onHandDelta     Int                  @default(0)
+  reservedDelta   Int                  @default(0)
+  quarantineDelta Int                  @default(0)
+  damagedDelta    Int                  @default(0)
+  expiredDelta    Int                  @default(0)
+  reference       String?              @db.VarChar(80)
+  note            String?              @db.VarChar(300)
+  actorUserId     String?
+  idempotencyKey  String?              @unique @db.VarChar(128)
+  createdAt       DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@index([batchId, createdAt])
+  @@index([reference])
+  @@index([kind, createdAt])
+  @@map("commerce_stock_movements")
+}
+
+model CommerceZone {
+  id             String            @id @default(uuid()) @db.Uuid
+  name           String            @db.VarChar(80)
+  warehouseId    String            @db.Uuid
+  warehouse      CommerceWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  isActive       Boolean           @default(true)
+  priority       Int               @default(100)
+  deliveryCharge Decimal           @db.Decimal(12, 2)
+  freeAbove      Decimal?          @db.Decimal(12, 2)
+  minDays        Int
+  maxDays        Int
+  codEligible    Boolean           @default(true)
+  maxCodAmount   Decimal?          @db.Decimal(12, 2)
+  minOrderAmount Decimal?          @db.Decimal(12, 2)
+  maxWeightGrams Int?
+  // PIN rules: six digits = one PIN, 1-5 digits = every PIN starting with them (state / district).
+  pinRules       String[]
+  blockedPins    String[]
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(6)
+
+  @@index([isActive, priority])
+  @@map("commerce_zones")
+}
+
+model CommerceAddress {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String
+  label     String?  @db.VarChar(40)
+  name      String   @db.VarChar(120)
+  phone     String   @db.VarChar(20)
+  line1     String   @db.VarChar(160)
+  line2     String?  @db.VarChar(160)
+  landmark  String?  @db.VarChar(120)
+  city      String   @db.VarChar(80)
+  state     String   @db.VarChar(80)
+  pincode   String   @db.VarChar(6)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("commerce_addresses")
+}
+
+// One customer checkout. Children: at most one FastQue order plus one shop_orders row per salon.
+model CommerceCheckout {
+  id             String   @id @default(uuid()) @db.Uuid
+  number         String   @unique @db.VarChar(20)
+  customerUserId String?
+  idempotencyKey String   @unique @db.VarChar(128)
+  requestHash    String   @db.VarChar(64)
+  result         Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  orders CommerceOrder[]
+
+  @@index([customerUserId, createdAt])
+  @@map("commerce_checkouts")
+}
+
+model CommerceOrder {
+  id              String                @id @default(uuid()) @db.Uuid
+  orderNumber     String                @unique @db.VarChar(20)
+  checkoutId      String                @db.Uuid
+  checkout        CommerceCheckout      @relation(fields: [checkoutId], references: [id], onDelete: Restrict)
+  sellerId        String                @db.Uuid
+  seller          CommerceSeller        @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  sellerName      String                @db.VarChar(120)
+  warehouseId     String                @db.Uuid
+  warehouse       CommerceWarehouse     @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  customerUserId  String?
+  contactName     String                @db.VarChar(120)
+  contactPhone    String                @db.VarChar(20)
+  contactEmail    String?               @db.VarChar(254)
+  shippingAddress Json
+  billingAddress  Json?
+  instructions    String?               @db.VarChar(300)
+  accessTokenHash String                @db.VarChar(64)
+  status          CommerceOrderStatus   @default(PLACED)
+  paymentMethod   String                @default("COD") @db.VarChar(20)
+  paymentStatus   CommercePaymentStatus @default(COD_PENDING)
+  currency        String                @default("INR") @db.VarChar(3)
+  subtotal        Decimal               @db.Decimal(12, 2)
+  discountTotal   Decimal               @default(0) @db.Decimal(12, 2)
+  deliveryCharge  Decimal               @db.Decimal(12, 2)
+  // Prices are tax-inclusive; this is the tax contained in the goods, from the product's GST rate.
+  taxIncluded     Decimal               @default(0) @db.Decimal(12, 2)
+  total           Decimal               @db.Decimal(12, 2)
+  couponCode      String?               @db.VarChar(30)
+  minDays         Int
+  maxDays         Int
+  placedAt        DateTime              @default(now()) @db.Timestamptz(6)
+  shippedAt       DateTime?             @db.Timestamptz(6)
+  deliveredAt     DateTime?             @db.Timestamptz(6)
+  cancelledAt     DateTime?             @db.Timestamptz(6)
+  cancelReason    String?               @db.VarChar(300)
+  packagingCost   Decimal               @default(0) @db.Decimal(12, 2)
+  internalNote    String?               @db.VarChar(1000)
+  // Automatic offers applied at placement: [{ name, amount }]
+  promotions      Json?
+  updatedAt       DateTime              @updatedAt @db.Timestamptz(6)
+
+  items      CommerceOrderItem[]
+  events     CommerceOrderEvent[]
+  shipments  CommerceShipment[]
+  codEntries CommerceCodEntry[]
+  returns    CommerceReturn[]
+
+  @@index([status, placedAt])
+  @@index([paymentStatus])
+  @@index([customerUserId, placedAt])
+  @@index([contactPhone, placedAt])
+  @@unique([checkoutId, sellerId], map: "commerce_orders_one_per_checkout")
+  @@map("commerce_orders")
+}
+
+model CommerceOrderItem {
+  id               String          @id @default(uuid()) @db.Uuid
+  orderId          String          @db.Uuid
+  order            CommerceOrder   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  listingId        String          @db.Uuid
+  listing          CommerceListing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  globalProductId  String
+  sku              String          @db.VarChar(60)
+  productName      String          @db.VarChar(160)
+  brand            String?         @db.VarChar(120)
+  category         String?         @db.VarChar(80)
+  variant          String?         @db.VarChar(80)
+  barcode          String?         @db.VarChar(64)
+  hsnCode          String?         @db.VarChar(8)
+  gstRatePercent   Decimal?        @db.Decimal(5, 2)
+  quantity         Int
+  mrp              Decimal         @db.Decimal(12, 2)
+  unitPrice        Decimal         @db.Decimal(12, 2)
+  lineTotal        Decimal         @db.Decimal(12, 2)
+  // Cost of the allocated batches at placement (whole line). Never sent to customers.
+  costTotal        Decimal         @db.Decimal(12, 2)
+  returnable       Boolean
+  returnWindowDays Int
+
+  allocations CommerceAllocation[]
+  returnItems CommerceReturnItem[]
+
+  @@index([orderId])
+  @@index([listingId])
+  @@map("commerce_order_items")
+}
+
+model CommerceAllocation {
+  id          String            @id @default(uuid()) @db.Uuid
+  orderItemId String            @db.Uuid
+  orderItem   CommerceOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  batchId     String            @db.Uuid
+  batch       CommerceBatch     @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  quantity    Int
+  // RESERVED -> DISPATCHED, or RESERVED -> RELEASED
+  state       String            @default("RESERVED") @db.VarChar(12)
+
+  @@index([orderItemId])
+  @@index([batchId, state])
+  @@map("commerce_allocations")
+}
+
+model CommerceOrderEvent {
+  id          String               @id @default(uuid()) @db.Uuid
+  orderId     String               @db.Uuid
+  order       CommerceOrder        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  fromStatus  CommerceOrderStatus?
+  toStatus    CommerceOrderStatus
+  actorKind   String               @db.VarChar(12)
+  actorUserId String?
+  note        String?              @db.VarChar(300)
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+
+  @@index([orderId, createdAt])
+  @@map("commerce_order_events")
+}
+
+model CommerceShipment {
+  id             String        @id @default(uuid()) @db.Uuid
+  orderId        String        @db.Uuid
+  order          CommerceOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  courier        String        @db.VarChar(80)
+  trackingNumber String?       @db.VarChar(80)
+  trackingUrl    String?       @db.VarChar(500)
+  weightGrams    Int?
+  courierCost    Decimal       @default(0) @db.Decimal(12, 2)
+  codFee         Decimal       @default(0) @db.Decimal(12, 2)
+  expectedOn     DateTime?     @db.Date
+  attempts       Int           @default(0)
+  proofNote      String?       @db.VarChar(300)
+  // Always true today: staff record tracking by hand; no courier API is connected.
+  manual         Boolean       @default(true)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(6)
+
+  @@index([orderId])
+  @@map("commerce_shipments")
+}
+
+// Finance ledger of one order's cash: COLLECTED, SETTLED (with deductions), ADJUSTMENT, REFUND.
+model CommerceCodEntry {
+  id             String        @id @default(uuid()) @db.Uuid
+  orderId        String        @db.Uuid
+  order          CommerceOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  kind           String        @db.VarChar(12)
+  amount         Decimal       @db.Decimal(12, 2)
+  deductions     Decimal       @default(0) @db.Decimal(12, 2)
+  reference      String?       @db.VarChar(80)
+  occurredOn     DateTime      @db.Date
+  note           String?       @db.VarChar(300)
+  actorUserId    String
+  idempotencyKey String        @unique @db.VarChar(128)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+
+  @@index([orderId, kind])
+  @@index([kind, occurredOn])
+  @@map("commerce_cod_entries")
+}
+
+model CommerceReturn {
+  id         String               @id @default(uuid()) @db.Uuid
+  number     String               @unique @db.VarChar(20)
+  orderId    String               @db.Uuid
+  order      CommerceOrder        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  resolution String               @db.VarChar(12)
+  reason     String               @db.VarChar(30)
+  details    String?              @db.VarChar(1000)
+  status     CommerceReturnStatus @default(REQUESTED)
+  adminNote  String?              @db.VarChar(500)
+  createdAt  DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime             @updatedAt @db.Timestamptz(6)
+
+  items CommerceReturnItem[]
+
+  @@index([orderId])
+  @@index([status, createdAt])
+  @@map("commerce_returns")
+}
+
+model CommerceReturnItem {
+  id          String            @id @default(uuid()) @db.Uuid
+  returnId    String            @db.Uuid
+  return      CommerceReturn    @relation(fields: [returnId], references: [id], onDelete: Restrict)
+  orderItemId String            @db.Uuid
+  orderItem   CommerceOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  quantity    Int
+  // Set at inspection: RESTOCK (unopened, sellable) or DAMAGED (written off).
+  disposition String?           @db.VarChar(10)
+
+  @@index([returnId])
+  @@index([orderItemId])
+  @@map("commerce_return_items")
+}
+
+model CommerceCoupon {
+  id             String    @id @default(uuid()) @db.Uuid
+  code           String    @unique @db.VarChar(30)
+  description    String?   @db.VarChar(200)
+  // PERCENT, FIXED or FREE_DELIVERY
+  kind           String    @db.VarChar(15)
+  value          Decimal   @default(0) @db.Decimal(12, 2)
+  maxDiscount    Decimal?  @db.Decimal(12, 2)
+  minOrder       Decimal   @default(0) @db.Decimal(12, 2)
+  brand          String?   @db.VarChar(120)
+  category       String?   @db.VarChar(80)
+  firstOrderOnly Boolean   @default(false)
+  usageLimit     Int?
+  perCustomer    Int       @default(1)
+  startsAt       DateTime? @db.Timestamptz(6)
+  endsAt         DateTime? @db.Timestamptz(6)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+
+  uses CommerceCouponUse[]
+
+  @@map("commerce_coupons")
+}
+
+model CommerceCouponUse {
+  id       String         @id @default(uuid()) @db.Uuid
+  couponId String         @db.Uuid
+  coupon   CommerceCoupon @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  orderId  String         @unique @db.Uuid
+  phone    String         @db.VarChar(20)
+  released Boolean        @default(false)
+
+  @@index([couponId, phone])
+  @@map("commerce_coupon_uses")
+}
+
+model CommerceSupplier {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @unique @db.VarChar(160)
+  contactName  String?  @db.VarChar(120)
+  phone        String?  @db.VarChar(20)
+  email        String?  @db.VarChar(254)
+  gstin        String?  @db.VarChar(15)
+  address      String?  @db.VarChar(400)
+  brands       String[]
+  creditDays   Int      @default(0)
+  leadTimeDays Int?
+  isActive     Boolean  @default(true)
+  notes        String?  @db.VarChar(1000)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  products CommerceSupplierProduct[]
+  orders   CommercePurchaseOrder[]
+  payments CommerceSupplierPayment[]
+
+  @@map("commerce_suppliers")
+}
+
+model CommerceSupplierProduct {
+  supplierId String           @db.Uuid
+  supplier   CommerceSupplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  listingId  String           @db.Uuid
+  listing    CommerceListing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  unitCost   Decimal          @db.Decimal(12, 2)
+  minQty     Int              @default(1)
+  updatedAt  DateTime         @updatedAt @db.Timestamptz(6)
+
+  @@id([supplierId, listingId])
+  @@index([listingId])
+  @@map("commerce_supplier_products")
+}
+
+model CommercePurchaseOrder {
+  id               String           @id @default(uuid()) @db.Uuid
+  number           String           @unique @db.VarChar(20)
+  supplierId       String           @db.Uuid
+  supplier         CommerceSupplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouseId      String           @db.Uuid
+  status           CommercePoStatus @default(DRAFT)
+  invoiceNumber    String?          @db.VarChar(60)
+  expectedOn       DateTime?        @db.Date
+  note             String?          @db.VarChar(500)
+  createdByUserId  String
+  approvedByUserId String?
+  orderedAt        DateTime?        @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(6)
+
+  items    CommercePoItem[]
+  payments CommerceSupplierPayment[]
+
+  @@index([status, createdAt])
+  @@index([supplierId])
+  @@map("commerce_purchase_orders")
+}
+
+model CommercePoItem {
+  id        String                @id @default(uuid()) @db.Uuid
+  poId      String                @db.Uuid
+  po        CommercePurchaseOrder @relation(fields: [poId], references: [id], onDelete: Restrict)
+  listingId String                @db.Uuid
+  listing   CommerceListing       @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  quantity  Int
+  unitCost  Decimal               @db.Decimal(12, 2)
+  accepted  Int                   @default(0)
+  rejected  Int                   @default(0)
+
+  @@index([poId])
+  @@index([listingId])
+  @@map("commerce_po_items")
+}
+
+model CommerceSupplierPayment {
+  id             String                 @id @default(uuid()) @db.Uuid
+  supplierId     String                 @db.Uuid
+  supplier       CommerceSupplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  poId           String?                @db.Uuid
+  po             CommercePurchaseOrder? @relation(fields: [poId], references: [id], onDelete: Restrict)
+  amount         Decimal                @db.Decimal(12, 2)
+  paidOn         DateTime               @db.Date
+  reference      String?                @db.VarChar(80)
+  actorUserId    String
+  idempotencyKey String                 @unique @db.VarChar(128)
+  createdAt      DateTime               @default(now()) @db.Timestamptz(6)
+
+  @@index([supplierId])
+  @@map("commerce_supplier_payments")
+}
+
+// Notifications are written in the order's transaction and delivered afterwards with retries.
+model CommerceOutbox {
+  id            String   @id @default(uuid()) @db.Uuid
+  dedupeKey     String   @unique @db.VarChar(160)
+  userId        String
+  type          String   @db.VarChar(60)
+  payload       Json?
+  deepLink      String?  @db.VarChar(300)
+  status        String   @default("PENDING") @db.VarChar(10)
+  attempts      Int      @default(0)
+  lastError     String?  @db.VarChar(300)
+  nextAttemptAt DateTime @default(now()) @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt])
+  @@map("commerce_outbox")
+}
+
+// ---------- FastQue Direct Commerce: reviews, support, promotions, imports, audits (2026-11) ----------
+
+model CommerceReview {
+  id             String   @id @default(uuid()) @db.Uuid
+  listingId      String   @db.Uuid
+  // One review per delivered order line: only real purchases can be reviewed.
+  orderItemId    String   @unique @db.Uuid
+  orderId        String   @db.Uuid
+  customerUserId String?
+  displayName    String   @db.VarChar(60)
+  rating         Int
+  body           String?  @db.VarChar(1500)
+  // PENDING until staff publish it; HIDDEN keeps the row.
+  status         String   @default("PENDING") @db.VarChar(10)
+  reply          String?  @db.VarChar(1000)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([listingId, status])
+  @@index([status, createdAt])
+  @@map("commerce_reviews")
+}
+
+model CommerceTicket {
+  id               String    @id @default(uuid()) @db.Uuid
+  number           String    @unique @db.VarChar(20)
+  orderId          String    @db.Uuid
+  sellerId         String    @db.Uuid
+  listingId        String?   @db.Uuid
+  shipmentId       String?   @db.Uuid
+  customerUserId   String?
+  category         String    @db.VarChar(20)
+  subject          String    @db.VarChar(160)
+  status           String    @default("OPEN") @db.VarChar(20)
+  priority         String    @default("NORMAL") @db.VarChar(10)
+  assignedToUserId String?
+  firstResponseAt  DateTime? @db.Timestamptz(6)
+  resolvedAt       DateTime? @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+
+  messages CommerceTicketMessage[]
+
+  @@index([status, createdAt])
+  @@index([orderId])
+  @@map("commerce_tickets")
+}
+
+model CommerceTicketMessage {
+  id           String         @id @default(uuid()) @db.Uuid
+  ticketId     String         @db.Uuid
+  ticket       CommerceTicket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  authorKind   String         @db.VarChar(10)
+  authorUserId String?
+  body         String         @db.VarChar(3000)
+  // Staff-only notes; never sent to the customer.
+  internal     Boolean        @default(false)
+  createdAt    DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@index([ticketId, createdAt])
+  @@map("commerce_ticket_messages")
+}
+
+model CommercePromotion {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String    @db.VarChar(80)
+  // BUY_X_GET_Y (same product), BUNDLE (all listed products together) or PERCENT (optionally by area)
+  kind       String    @db.VarChar(15)
+  listingIds String[]
+  buyQty     Int       @default(1)
+  getQty     Int       @default(0)
+  // PERCENT: percent off. BUNDLE: price of one full set.
+  value      Decimal   @default(0) @db.Decimal(12, 2)
+  // Empty = everywhere; otherwise PINs or PIN prefixes (city offers).
+  pinRules   String[]
+  startsAt   DateTime? @db.Timestamptz(6)
+  endsAt     DateTime? @db.Timestamptz(6)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("commerce_promotions")
+}
+
+model CommerceListingDetail {
+  listingId       String   @id @db.Uuid
+  ingredients     String?  @db.VarChar(4000)
+  usage           String?  @db.VarChar(2000)
+  benefits        String?  @db.VarChar(2000)
+  warnings        String?  @db.VarChar(2000)
+  countryOfOrigin String?  @db.VarChar(60)
+  manufacturer    String?  @db.VarChar(300)
+  shelfLifeMonths Int?
+  // Listings sharing a group are sizes/shades of one product.
+  variantGroup    String?  @db.VarChar(60)
+  variantLabel    String?  @db.VarChar(60)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([variantGroup])
+  @@map("commerce_listing_details")
+}
+
+model CommerceBanner {
+  id        String    @id @default(uuid()) @db.Uuid
+  title     String    @db.VarChar(100)
+  subtitle  String?   @db.VarChar(200)
+  imageUrl  String?   @db.VarChar(500)
+  linkPath  String    @db.VarChar(200)
+  sortOrder Int       @default(100)
+  startsAt  DateTime? @db.Timestamptz(6)
+  endsAt    DateTime? @db.Timestamptz(6)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("commerce_banners")
+}
+
+model CommerceSavedBag {
+  userId    String   @id
+  items     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([updatedAt])
+  @@map("commerce_saved_bags")
+}
+
+// Anonymous daily counters only; nothing about who did it.
+model CommerceDailyStat {
+  day    DateTime @db.Date
+  metric String   @db.VarChar(20)
+  count  Int      @default(0)
+
+  @@id([day, metric])
+  @@map("commerce_daily_stats")
+}
+
+model CommerceReturnPolicy {
+  category   String   @id @db.VarChar(80)
+  returnable Boolean  @default(true)
+  windowDays Int
+  note       String?  @db.VarChar(300)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("commerce_return_policies")
+}
+
+model CommerceFile {
+  id           String   @id @default(uuid()) @db.Uuid
+  kind         String   @db.VarChar(20)
+  orderId      String   @db.Uuid
+  returnId     String?  @db.Uuid
+  storageKey   String   @unique @db.VarChar(300)
+  mimeType     String   @db.VarChar(60)
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([orderId])
+  @@index([returnId])
+  @@map("commerce_files")
+}
+
+model CommerceSettlementImport {
+  id              String    @id @default(uuid()) @db.Uuid
+  courier         String    @db.VarChar(80)
+  fileName        String    @db.VarChar(200)
+  fileHash        String    @unique @db.VarChar(64)
+  createdByUserId String
+  appliedAt       DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+
+  lines CommerceSettlementLine[]
+
+  @@map("commerce_settlement_imports")
+}
+
+model CommerceSettlementLine {
+  id         String                   @id @default(uuid()) @db.Uuid
+  importId   String                   @db.Uuid
+  import     CommerceSettlementImport @relation(fields: [importId], references: [id], onDelete: Restrict)
+  rowNumber  Int
+  matchText  String                   @db.VarChar(80)
+  amount     Decimal                  @db.Decimal(12, 2)
+  deductions Decimal                  @default(0) @db.Decimal(12, 2)
+  reference  String?                  @db.VarChar(80)
+  orderId    String?                  @db.Uuid
+  // MATCHED, PROBLEM or APPLIED
+  state      String                   @db.VarChar(10)
+  message    String?                  @db.VarChar(300)
+
+  @@unique([importId, rowNumber])
+  @@index([orderId])
+  @@map("commerce_settlement_lines")
+}
+
+// No rows for a person = every warehouse; any row limits them to the listed ones.
+model CommerceWarehouseGrant {
+  userId      String
+  warehouseId String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([userId, warehouseId])
+  @@map("commerce_warehouse_grants")
+}
+
+model CommerceStockAudit {
+  id               String    @id @default(uuid()) @db.Uuid
+  number           String    @unique @db.VarChar(20)
+  warehouseId      String    @db.Uuid
+  // OPEN -> SUBMITTED -> APPROVED, or CANCELLED
+  status           String    @default("OPEN") @db.VarChar(10)
+  createdByUserId  String
+  countedByUserId  String?
+  approvedByUserId String?
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  approvedAt       DateTime? @db.Timestamptz(6)
+
+  lines CommerceStockAuditLine[]
+
+  @@index([warehouseId, status])
+  @@map("commerce_stock_audits")
+}
+
+model CommerceStockAuditLine {
+  id        String             @id @default(uuid()) @db.Uuid
+  auditId   String             @db.Uuid
+  audit     CommerceStockAudit @relation(fields: [auditId], references: [id], onDelete: Restrict)
+  batchId   String             @db.Uuid
+  // Position recorded at the moment this line was counted.
+  systemQty Int?
+  counted   Int?
+
+  @@unique([auditId, batchId])
+  @@map("commerce_stock_audit_lines")
+}
+
+model CommercePurchaseRequest {
+  id              String   @id @default(uuid()) @db.Uuid
+  number          String   @unique @db.VarChar(20)
+  listingId       String   @db.Uuid
+  warehouseId     String   @db.Uuid
+  quantity        Int
+  reason          String   @db.VarChar(300)
+  // OPEN, APPROVED, REJECTED, ORDERED
+  status          String   @default("OPEN") @db.VarChar(10)
+  createdByUserId String
+  decidedByUserId String?
+  purchaseOrderId String?  @db.Uuid
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  quotations CommerceQuotation[]
+
+  @@index([status, createdAt])
+  @@map("commerce_purchase_requests")
+}
+
+model CommerceQuotation {
+  id           String                  @id @default(uuid()) @db.Uuid
+  requestId    String                  @db.Uuid
+  request      CommercePurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  supplierId   String                  @db.Uuid
+  unitCost     Decimal                 @db.Decimal(12, 2)
+  leadTimeDays Int?
+  validUntil   DateTime?               @db.Date
+  note         String?                 @db.VarChar(300)
+  createdAt    DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@index([requestId])
+  @@map("commerce_quotations")
+}
+
+model CommerceSupplierReturn {
+  id              String   @id @default(uuid()) @db.Uuid
+  number          String   @unique @db.VarChar(20)
+  supplierId      String   @db.Uuid
+  batchId         String   @db.Uuid
+  // Which stock condition the units leave from: ON_HAND, DAMAGED, QUARANTINED or EXPIRED
+  source          String   @db.VarChar(12)
+  quantity        Int
+  reason          String   @db.VarChar(300)
+  // SENT -> CREDITED. The credit is recorded by finance and lowers the supplier balance.
+  status          String   @default("SENT") @db.VarChar(10)
+  creditAmount    Decimal? @db.Decimal(12, 2)
+  creditReference String?  @db.VarChar(80)
+  createdByUserId String
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([supplierId])
+  @@map("commerce_supplier_returns")
+}
+
+model CommercePickup {
+  id              String   @id @default(uuid()) @db.Uuid
+  number          String   @unique @db.VarChar(20)
+  warehouseId     String   @db.Uuid
+  courier         String   @db.VarChar(80)
+  pickupOn        DateTime @db.Date
+  window          String?  @db.VarChar(40)
+  orderIds        String[]
+  // SCHEDULED, PICKED_UP, CANCELLED. Arranged by staff with the courier; no courier API is connected.
+  status          String   @default("SCHEDULED") @db.VarChar(10)
+  note            String?  @db.VarChar(300)
+  createdByUserId String
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([status, pickupOn])
+  @@map("commerce_pickups")
 }

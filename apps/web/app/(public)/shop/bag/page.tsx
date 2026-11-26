@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { ShopBag } from "../../../../components/shop/ShopCheckout";
+import { BagSwitch } from "../../../../components/commerce/FastQueBag";
 
 export const metadata: Metadata = { title: "Your bag", robots: { index: false } };
 
 export default function ShopBagPage() {
-  return <ShopBag />;
+  return <BagSwitch />;
 }

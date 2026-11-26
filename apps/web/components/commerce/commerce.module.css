@@ -1,0 +1,45 @@
+/* FastQue Direct Commerce inside the marketplace. Uses the shop page's own variables (--s-*). */
+.tabs { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 2px; scrollbar-width: none; }
+.tab { flex: 1 0 auto; text-align: center; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--s-line); background: var(--s-card); text-decoration: none; font-weight: 800; font-size: 0.9rem; white-space: nowrap; }
+.tabOn { background: var(--s-grad); border-color: transparent; color: #fff !important; }
+.tab:focus-visible { outline: 2px solid var(--s-orange); outline-offset: 2px; }
+.soldBy { display: grid; gap: 1px; margin-top: 6px; font-size: 0.74rem; color: var(--s-muted); }
+.soldBy strong { color: var(--s-orange); }
+.fqTag { color: #fff; background: var(--s-grad); border-color: transparent; }
+.cardFoot { padding: 0 14px 14px; }
+.offer { display: grid; gap: 10px; margin-top: 18px; padding: 16px; border-radius: var(--s-radius); border: 1px solid var(--s-orange); background: var(--s-card); }
+.door { margin: 0; font-size: 0.88rem; }
+.pin { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pin input { width: 120px; }
+.good { font-size: 0.8rem; color: var(--s-ok); }
+.bad { font-size: 0.8rem; color: var(--s-warn); }
+.group { display: grid; gap: 10px; margin-bottom: 16px; padding: 16px; border-radius: var(--s-radius); border: 1px solid var(--s-line); background: var(--s-bg-2); }
+.groupHead { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.groupHead h2 { margin: 0; font-size: 1.05rem; }
+.formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wide { grid-column: 1 / -1; }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.timeline li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; color: var(--s-faint); font-size: 0.88rem; }
+.timeline li::before { content: ""; width: 14px; height: 14px; margin-top: 3px; border-radius: 99px; border: 2px solid var(--s-line); }
+.done { color: var(--s-text) !important; }
+.done::before { background: var(--s-ok); border-color: var(--s-ok) !important; }
+.stars { font-size: 0.8rem; color: var(--s-muted); }
+.stars > [aria-hidden], .stars:not(:has(span)) { color: var(--s-orange); letter-spacing: 1px; }
+.gallery { display: flex; gap: 8px; overflow-x: auto; }
+.shot { flex: 0 0 auto; width: 76px; height: 76px; padding: 0; border: 1px solid var(--s-line); border-radius: 12px; overflow: hidden; background: #fff; cursor: zoom-in; }
+.shot img { width: 100%; height: 100%; object-fit: contain; }
+.zoom { max-width: min(92vw, 900px); border: 0; border-radius: 16px; padding: 12px; background: var(--s-card); color: var(--s-text); }
+.zoom::backdrop { background: rgba(0, 0, 0, 0.7); }
+.zoom img { display: block; max-width: 100%; max-height: 78vh; margin: 0 auto 10px; background: #fff; }
+.fact { margin: 8px 0 0; font-size: 0.88rem; white-space: pre-line; overflow-wrap: anywhere; }
+.group summary { cursor: pointer; min-height: 28px; }
+.group details form { display: grid; gap: 10px; margin-top: 10px; }
+.banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 18px; }
+.banner { display: grid; gap: 4px; padding: 18px; border-radius: var(--s-radius); background: var(--s-grad); color: #fff !important; text-decoration: none; overflow: hidden; }
+.banner img { width: 100%; max-height: 160px; object-fit: cover; border-radius: 10px; }
+.box { margin-top: 16px; }
+.boxRow { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--bc-border, #e7e0d3); }
+.boxActions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.box button, .box input { min-height: 40px; padding: 6px 12px; border: 1px solid var(--bc-border, #e7e0d3); border-radius: 10px; background: transparent; color: inherit; font: inherit; min-width: 0; }
+@media (max-width: 640px) { .formGrid { grid-template-columns: 1fr; } }
+@media print { .noPrint { display: none !important; } }

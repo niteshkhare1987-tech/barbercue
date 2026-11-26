@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { SHOP_ORDER_STATUS_LABEL, type ShopOrderDto } from "@barbercue/shared";
 import { apiFetch, ApiError } from "../../lib/api";
 import { useRecent, useWishlist } from "../../lib/shop/store";
+import { FastQueOrders } from "../commerce/FastQueOrder";
 
 const inr = (v: string) => `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(v))}`;
 const OPEN = new Set(["PLACED", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP"]);
@@ -38,6 +39,7 @@ export function CustomerShop() {
         </div>
       </section>
       {error && <p role="alert" style={{ color: "#b0413e" }}>{error}</p>}
+      <FastQueOrders />
       <section style={card} aria-label="Track orders">
         <h2 style={{ marginTop: 0 }}>Track orders</h2>
         {!orders ? "Loading…" : open.length === 0 ? <p>No open orders.</p> : open.map((o) => <OrderRow key={o.id} o={o} />)}

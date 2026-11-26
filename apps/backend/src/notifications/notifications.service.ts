@@ -57,6 +57,11 @@ const TYPE_CATEGORY: Record<NotificationType, NotificationCategory> = {
   'home.booking.update': NotificationCategory.BOOKING_UPDATES,
   'home.professional.update': NotificationCategory.BOOKING_UPDATES,
   'home.provider.update': NotificationCategory.BOOKING_UPDATES,
+  'commerce.order.updated': NotificationCategory.BOOKING_UPDATES,
+  'commerce.return.updated': NotificationCategory.BOOKING_UPDATES,
+  'commerce.ticket.updated': NotificationCategory.BOOKING_UPDATES,
+  'commerce.stock.alert': NotificationCategory.BOOKING_UPDATES,
+  'shop.order.updated': NotificationCategory.BOOKING_UPDATES,
 };
 
 // ---------- Auto-expiry (live-visit add-on mission, 17 Nov 2026) ----------

@@ -2760,6 +2760,11 @@ const enNotificationTypeLabels: NotificationTypeLabels = {
   'home.booking.update': 'FastQue Home booking update',
   'home.professional.update': 'FastQue Home visit update',
   'home.provider.update': 'FastQue Home provider update',
+  'commerce.order.updated': 'Your FastQue order was updated',
+  'commerce.return.updated': 'Your return was updated',
+  'commerce.ticket.updated': 'Support replied about your order',
+  'commerce.stock.alert': 'FastQue stock needs attention',
+  'shop.order.updated': 'Marketplace order update',
 };
 
 const hiNotificationTypeLabels: NotificationTypeLabels = {
@@ -2799,6 +2804,11 @@ const hiNotificationTypeLabels: NotificationTypeLabels = {
   'home.booking.update': 'FastQue Home बुकिंग अपडेट',
   'home.professional.update': 'FastQue Home काम का अपडेट',
   'home.provider.update': 'FastQue Home सैलून अपडेट',
+  'commerce.order.updated': 'आपका FastQue ऑर्डर अपडेट हुआ',
+  'commerce.return.updated': 'आपकी वापसी अपडेट हुई',
+  'commerce.ticket.updated': 'आपके ऑर्डर पर सहायता का जवाब आया',
+  'commerce.stock.alert': 'FastQue स्टॉक पर ध्यान दें',
+  'shop.order.updated': 'मार्केटप्लेस ऑर्डर अपडेट',
 };
 
 export const NOTIFICATION_TYPE_LABELS: Readonly<Record<Language, NotificationTypeLabels>> = {

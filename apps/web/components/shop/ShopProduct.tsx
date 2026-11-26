@@ -8,6 +8,8 @@ import { useAuth } from "../../lib/auth-context";
 import { bag, locationQuery, rememberViewed, useShopLocation, useWishlist } from "../../lib/shop/store";
 import { BarcodeSvg } from "../inventory/ProductCodes";
 import { CardGrid, Packshot, rupees, toggleWish } from "./ShopParts";
+import { useCommerceConfig } from "../../lib/commerce/store";
+import { FastQueOffer } from "../commerce/CommerceParts";
 import s from "./shop.module.css";
 
 const AVAIL: Record<ShopOfferDto["availability"], string> = { IN_STOCK: "In stock", LOW_STOCK: "Few left", OUT_OF_STOCK: "Out of stock" };
@@ -17,6 +19,7 @@ export function ShopProduct({ initial }: { initial: ShopProductDetailDto }) {
   const loc = useShopLocation();
   const wish = useWishlist();
   const { user } = useAuth();
+  const { multiSellerCart } = useCommerceConfig();
   const [p, setP] = useState(initial);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [notice, setNotice] = useState<{ tone: "ok" | "info" | "error"; text: string; replace?: ShopOfferDto } | null>(null);
@@ -43,7 +46,7 @@ export function ShopProduct({ initial }: { initial: ShopProductDetailDto }) {
     price: o.price,
   });
   function add(o: ShopOfferDto) {
-    const result = bag.add(lineFor(o));
+    const result = multiSellerCart ? bag.addAny(lineFor(o)) : bag.add(lineFor(o));
     if (result === "other-salon")
       setNotice({ tone: "info", text: `Your bag has products from another salon. One order is collected from one salon.`, replace: o });
     else setNotice({ tone: "ok", text: `Added to your bag from ${o.salon.name}.` });
@@ -83,6 +86,8 @@ export function ShopProduct({ initial }: { initial: ShopProductDetailDto }) {
               {saved ? "♥ Saved" : "♡ Save to wishlist"}
             </button>
           </div>
+
+          <FastQueOffer productId={p.id} />
 
           <h2 className={s.h2} style={{ fontSize: "1.2rem", marginTop: 22 }}>Choose your salon</h2>
           <p className={s.sub}>{loc ? `Sellers ${loc.lat != null ? "nearest to you first" : `in ${loc.label}`}.` : "Set your location (top bar) to see the nearest salons first."} Collect from the salon and pay there.</p>

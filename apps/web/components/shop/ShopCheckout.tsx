@@ -13,6 +13,7 @@ import { apiFetch, ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { bag, newIdempotencyKey, rememberGuestOrder, useBag, useGuestOrders, type BagLine } from "../../lib/shop/store";
 import { Packshot, rupees } from "./ShopParts";
+import { FastQueOrders } from "../commerce/FastQueOrder";
 import s from "./shop.module.css";
 
 const errorText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message || fallback : fallback);
@@ -297,6 +298,7 @@ export function ShopOrdersList() {
   return (
     <main style={{ paddingTop: 20 }} aria-labelledby="orders-title">
       <h1 id="orders-title" className={s.h2}>My orders</h1>
+      <FastQueOrders />
       {!user && <p className={s.sub}>Guest orders placed on this device are listed here. <Link href="/login?next=/shop/orders">Sign in</Link> to see orders on your account.</p>}
       <div className={s.offers}>
         {(mine ?? []).map((o) => (

@@ -7,6 +7,8 @@ import { DISCOVERY_PATHS, SHOP_BRAND_NAME, type CityDto, type ShopProductCardDto
 import { apiFetch } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { bagCount, setShopLocation, useBag, useShopLocation, useWishlist, wishlist } from "../../lib/shop/store";
+import { useCommerceConfig, useFqBag } from "../../lib/commerce/store";
+import { SellerTabs } from "../commerce/CommerceParts";
 import s from "./shop.module.css";
 
 export const rupees = (v: string | number | null | undefined) =>
@@ -195,6 +197,8 @@ export function ShopFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const items = useBag();
+  const fqItems = useFqBag();
+  const commerce = useCommerceConfig();
   const wish = useWishlist();
   const [q, setQ] = useState("");
   function submit(e: FormEvent) {
@@ -202,7 +206,7 @@ export function ShopFrame({ children }: { children: ReactNode }) {
     const text = q.trim();
     router.push(text ? `/shop/browse?q=${encodeURIComponent(text)}` : "/shop/browse");
   }
-  const count = bagCount(items);
+  const count = bagCount(items) + (commerce.enabled ? fqItems.reduce((n, l) => n + l.quantity, 0) : 0);
   return (
     <div className={s.page}>
       <div className={s.ticker} aria-hidden="true">
@@ -232,7 +236,10 @@ export function ShopFrame({ children }: { children: ReactNode }) {
           </Link>
         </div>
       </header>
-      <div className={s.wrap}>{children}</div>
+      <div className={s.wrap}>
+        <SellerTabs />
+        {children}
+      </div>
     </div>
   );
 }

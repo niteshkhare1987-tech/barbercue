@@ -98,6 +98,17 @@ export const bag = {
     write("bag", existing ? current.map((l) => (l.listingId === line.listingId ? { ...l, quantity: Math.min(50, l.quantity + line.quantity) } : l)) : [...current, line]);
     return "added";
   },
+  /** Adds a line whatever salon it is from. Only used when the server allows a multi-seller bag. */
+  addAny(line: BagLine): "added" | "other-salon" {
+    const current = read<BagLine[]>("bag", []);
+    write(
+      "bag",
+      current.some((l) => l.listingId === line.listingId)
+        ? current.map((l) => (l.listingId === line.listingId ? { ...l, quantity: Math.min(50, l.quantity + line.quantity) } : l))
+        : [...current, line],
+    );
+    return "added";
+  },
   replaceWith(line: BagLine) {
     write("bag", [line]);
   },
