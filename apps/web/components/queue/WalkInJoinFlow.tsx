@@ -150,6 +150,7 @@ export function WalkInJoinFlow({ salonId, services, currency = null, countryCode
         showStepNumber={false}
         maxServices={MAX_WALK_IN_SERVICES}
         disabled={submitting}
+        onContinue={() => document.getElementById("walkin-name")?.focus()}
       />
 
       {(

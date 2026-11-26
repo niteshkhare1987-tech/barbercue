@@ -8,6 +8,7 @@ import {
   numberToPaise,
   paiseToRupees,
 } from "@barbercue/shared";
+import { Button } from "../ui/Button";
 import styles from "./booking.module.css";
 
 export function ServiceStep({
@@ -20,6 +21,7 @@ export function ServiceStep({
   showStepNumber = true,
   maxServices = MAX_SERVICES_PER_BOOKING,
   disabled = false,
+  onContinue,
 }: {
   services: ServiceDto[];
   selectedServiceIds: string[];
@@ -30,6 +32,7 @@ export function ServiceStep({
   showStepNumber?: boolean;
   maxServices?: number;
   disabled?: boolean;
+  onContinue?: () => void;
 }) {
   const byId = new Map(services.map((service) => [service.id, service]));
   const selected = selectedServiceIds.flatMap((id) => {
@@ -99,6 +102,13 @@ export function ServiceStep({
             <div><strong>Total</strong><strong>{money(paiseToRupees(subtotal - discount))}</strong></div>
             {selected.length > 0 && <small className={styles.optionMeta}>{minutes} min total</small>}
           </div>
+          {onContinue && (
+            <div className={styles.cartContinue}>
+              <Button type="button" variant="primary" fullWidth disabled={disabled || !selected.length} onClick={onContinue}>
+                Continue
+              </Button>
+            </div>
+          )}
         </aside>
       </div>
     </section>

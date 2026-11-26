@@ -620,15 +620,18 @@ export function BookingFlow({
         currency={currency}
         countryCode={countryCode}
         onlineBookingDiscountPercent={onlineBookingDiscountPercent}
+        onContinue={() => document.getElementById("booking-professional")?.focus()}
       />
 
       {selectedServiceIds.length > 0 && (
-        <StaffStep
-          options={staffOptions}
-          selectedStaffId={selectedStaffId}
-          onSelect={handleSelectStaff}
-          loading={staffLoading}
-        />
+        <div id="booking-professional" tabIndex={-1}>
+          <StaffStep
+            options={staffOptions}
+            selectedStaffId={selectedStaffId}
+            onSelect={handleSelectStaff}
+            loading={staffLoading}
+          />
+        </div>
       )}
 
       {selectedServiceIds.length > 0 && selectedStaffId !== undefined && (
